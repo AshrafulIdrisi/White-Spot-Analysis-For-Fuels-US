@@ -93,23 +93,27 @@ export const MarketShareModule: React.FC<MarketShareModuleProps> = ({
   const [liveCatchmentData, setLiveCatchmentData] = useState<CatchmentMarketShareData | null>(null);
   const [liveRadiusData, setLiveRadiusData] = useState<RadiusAnalysisData | null>(null);
 
-  // Sync if selectedWhiteSpot changes from external selection
+  // Sync if selectedWhiteSpot changes from external selection (e.g. map click or tab switch)
   useEffect(() => {
-    if (selectedWhiteSpot && selectedWhiteSpot.id !== selectedSiteId) {
+    if (selectedWhiteSpot) {
       setSelectedSiteId(selectedWhiteSpot.id);
     }
-  }, [selectedWhiteSpot]);
+  }, [selectedWhiteSpot?.id, selectedWhiteSpot?.lat, selectedWhiteSpot?.lng]);
 
-  // Find active location record (either candidate or existing store)
-  const activeCandidate = whiteSpots.find(w => w.id === selectedSiteId);
+  // Find active location record (either candidate, live clicked site, or existing store)
+  const activeCandidate = (selectedWhiteSpot && (selectedWhiteSpot.id === selectedSiteId || !selectedSiteId))
+    ? selectedWhiteSpot
+    : (whiteSpots.find(w => w.id === selectedSiteId) || selectedWhiteSpot || whiteSpots[0] || null);
+    
   const activeStore = locations.find(l => l.id === selectedSiteId);
+  
   const activeSite = activeCandidate ? {
     id: activeCandidate.id,
-    candidateName: activeCandidate.candidateName,
-    address: activeCandidate.address,
-    city: activeCandidate.city,
-    state: activeCandidate.state,
-    zipCode: activeCandidate.zipCode,
+    candidateName: activeCandidate.candidateName || 'Live Clicked Site',
+    address: activeCandidate.address || 'Trade Area Corridor',
+    city: activeCandidate.city || 'Regional Market',
+    state: activeCandidate.state || 'TX',
+    zipCode: activeCandidate.zipCode || '',
     lat: activeCandidate.lat,
     lng: activeCandidate.lng,
     opportunityScore: Math.round(activeCandidate.opportunityScore || 85),
@@ -139,7 +143,7 @@ export const MarketShareModule: React.FC<MarketShareModuleProps> = ({
       accessIngressRisk: 'LOW' as const,
       competitorDensity: 'MODERATE' as const
     },
-    strategicThesis: activeCandidate.primaryRationale?.join(' ') || 'High opportunity candidate site.',
+    strategicThesis: activeCandidate.primaryRationale?.join(' ') || 'Live trade area candidate analysis.',
     tags: ['Expansion Candidate']
   } : (activeStore ? {
     id: activeStore.id,
@@ -181,34 +185,53 @@ export const MarketShareModule: React.FC<MarketShareModuleProps> = ({
     tags: ['Existing Network', activeStore.brand]
   } : null);
 
-  // Trigger live calculation when site or radius changes
+  const fetchLiveData = async (lat: number, lng: number, radius: 1 | 3 | 5, name: string) => {
+    setIsLoadingLive(true);
+    try {
+      let analysisResult: RadiusAnalysisData | null = null;
+      try {
+        const response = await fetch('/api/v1/spatial/radius-analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ lat, lng, radiusMiles: radius, addressLabel: name })
+        });
+        if (response.ok) {
+          const resJson = await response.json();
+          if (resJson.success && resJson.analysis) {
+            analysisResult = resJson.analysis;
+          }
+        }
+      } catch (apiErr) {
+        console.warn('MarketShare backend radius API fallback to client service:', apiErr);
+      }
+
+      if (!analysisResult) {
+        analysisResult = await analyzeLocationRadius(lat, lng, radius, name);
+      }
+
+      setLiveRadiusData(analysisResult);
+      if (analysisResult.catchmentMarketShare) {
+        setLiveCatchmentData(analysisResult.catchmentMarketShare);
+      }
+    } catch (err) {
+      console.error('Error fetching live catchment analysis:', err);
+    } finally {
+      setIsLoadingLive(false);
+    }
+  };
+
+  // Trigger live calculation when site, radius or coordinates change
   useEffect(() => {
     if (!activeSite) return;
-
-    let isMounted = true;
-    setIsLoadingLive(true);
-
-    analyzeLocationRadius(activeSite.lat, activeSite.lng, selectedRadius, activeSite.candidateName)
-      .then(analysis => {
-        if (!isMounted) return;
-        setLiveRadiusData(analysis);
-        if (analysis.catchmentMarketShare) {
-          setLiveCatchmentData(analysis.catchmentMarketShare);
-        }
-        setIsLoadingLive(false);
-      })
-      .catch(err => {
-        console.error('Error fetching live catchment analysis:', err);
-        if (isMounted) setIsLoadingLive(false);
-      });
-
-    return () => {
-      isMounted = false;
-    };
+    fetchLiveData(activeSite.lat, activeSite.lng, selectedRadius, activeSite.candidateName);
   }, [selectedSiteId, selectedRadius, activeSite?.lat, activeSite?.lng]);
 
   const handleSelectSite = (siteId: string) => {
     setSelectedSiteId(siteId);
+    if (selectedWhiteSpot && selectedWhiteSpot.id === siteId) {
+      if (onSelectWhiteSpot) onSelectWhiteSpot(selectedWhiteSpot);
+      return;
+    }
     const cand = whiteSpots.find(w => w.id === siteId);
     if (cand && onSelectWhiteSpot) {
       onSelectWhiteSpot(cand);
@@ -339,6 +362,13 @@ export const MarketShareModule: React.FC<MarketShareModuleProps> = ({
                     onChange={(e) => handleSelectSite(e.target.value)}
                     className="w-full bg-slate-950 text-xs text-slate-100 pl-9 pr-8 py-2.5 rounded-xl border border-slate-700 focus:outline-none focus:border-purple-500 font-semibold cursor-pointer appearance-none"
                   >
+                    {selectedWhiteSpot && !whiteSpots.some(w => w.id === selectedWhiteSpot.id) && (
+                      <optgroup label="📍 Live Click / Map Target">
+                        <option value={selectedWhiteSpot.id}>
+                          📍 {selectedWhiteSpot.candidateName} — {selectedWhiteSpot.city || 'Live Location'} ({selectedWhiteSpot.lat.toFixed(4)}, {selectedWhiteSpot.lng.toFixed(4)})
+                        </option>
+                      </optgroup>
+                    )}
                     <optgroup label="🎯 White Spot Expansion Candidates">
                       {whiteSpots.map(w => (
                         <option key={w.id} value={w.id}>
@@ -373,6 +403,21 @@ export const MarketShareModule: React.FC<MarketShareModuleProps> = ({
                     </button>
                   ))}
                 </div>
+
+                {/* Refresh Live OSM Data Button */}
+                <button
+                  onClick={() => {
+                    if (activeSite) {
+                      fetchLiveData(activeSite.lat, activeSite.lng, selectedRadius, activeSite.candidateName);
+                    }
+                  }}
+                  disabled={isLoadingLive}
+                  className="px-3 py-2 rounded-xl bg-slate-950 hover:bg-slate-800 text-purple-300 border border-purple-900/50 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                  title="Re-query live OpenStreetMap Overpass API for real-time station and pump counts"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isLoadingLive ? 'animate-spin text-purple-400' : ''}`} />
+                  <span className="hidden sm:inline">{isLoadingLive ? 'Analyzing...' : 'Fetch Live OSM'}</span>
+                </button>
               </div>
 
               {/* Action Buttons */}
@@ -406,6 +451,19 @@ export const MarketShareModule: React.FC<MarketShareModuleProps> = ({
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex-shrink-0">
                 Quick Select:
               </span>
+              {selectedWhiteSpot && (
+                <button
+                  onClick={() => handleSelectSite(selectedWhiteSpot.id)}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-medium whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
+                    selectedSiteId === selectedWhiteSpot.id
+                      ? 'bg-purple-600 text-white font-bold shadow-sm'
+                      : 'bg-purple-950/60 text-purple-300 hover:text-white border border-purple-800'
+                  }`}
+                >
+                  <MapPin className="w-3 h-3 text-purple-400" />
+                  Live: {selectedWhiteSpot.candidateName.split(' ')[0]} ({selectedWhiteSpot.city || `${selectedWhiteSpot.lat.toFixed(2)},${selectedWhiteSpot.lng.toFixed(2)}`})
+                </button>
+              )}
               {whiteSpots.slice(0, 6).map(w => (
                 <button
                   key={w.id}

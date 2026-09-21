@@ -60,13 +60,34 @@ export const CatchmentAnalysis: React.FC<CatchmentAnalysisProps> = ({
   const [isLoadingLive, setIsLoadingLive] = useState<boolean>(false);
   const [lastFetchedAt, setLastFetchedAt] = useState<string | null>(null);
 
-  const activeCandidate = candidates.find(c => c.id === selectedTargetId) || selectedCandidate || candidates[0] || null;
+  const activeCandidate = (selectedCandidate && (selectedCandidate.id === selectedTargetId || !selectedTargetId))
+    ? selectedCandidate
+    : (candidates.find(c => c.id === selectedTargetId) || selectedCandidate || candidates[0] || null);
 
   // Fetch live Overpass & demographic data when active target changes
   const fetchLiveData = async (lat: number, lng: number, radius: 1 | 3 | 5, addressLabel?: string) => {
     setIsLoadingLive(true);
     try {
-      const data = await analyzeLocationRadius(lat, lng, radius, addressLabel);
+      let data: RadiusAnalysisData | null = null;
+      try {
+        const response = await fetch('/api/v1/spatial/radius-analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ lat, lng, radiusMiles: radius, addressLabel })
+        });
+        if (response.ok) {
+          const resJson = await response.json();
+          if (resJson.success && resJson.analysis) {
+            data = resJson.analysis;
+          }
+        }
+      } catch (err) {
+        console.warn('Backend radius API fallback in CatchmentAnalysis:', err);
+      }
+
+      if (!data) {
+        data = await analyzeLocationRadius(lat, lng, radius, addressLabel);
+      }
       setLiveRadiusData(data);
       setLastFetchedAt(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
     } catch (e) {
@@ -80,14 +101,14 @@ export const CatchmentAnalysis: React.FC<CatchmentAnalysisProps> = ({
     if (activeCandidate) {
       fetchLiveData(activeCandidate.lat, activeCandidate.lng, activeRadius, activeCandidate.candidateName || activeCandidate.address);
     }
-  }, [selectedTargetId, activeRadius]);
+  }, [selectedTargetId, activeRadius, activeCandidate?.lat, activeCandidate?.lng]);
 
   // Sync selected target if parent updates selectedCandidate
   useEffect(() => {
-    if (selectedCandidate && selectedCandidate.id !== selectedTargetId) {
+    if (selectedCandidate) {
       setSelectedTargetId(selectedCandidate.id);
     }
-  }, [selectedCandidate]);
+  }, [selectedCandidate?.id, selectedCandidate?.lat, selectedCandidate?.lng]);
 
   if (!activeCandidate) {
     return (

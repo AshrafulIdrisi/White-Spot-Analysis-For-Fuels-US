@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Building2, 
   Fuel, 
@@ -39,6 +39,13 @@ export const CannibalizationSimulatorModule: React.FC<CannibalizationSimulatorPr
     return selectedCandidate?.id || (candidates[0]?.id ?? '');
   });
 
+  // Sync when selectedCandidate prop updates (e.g. from live map click)
+  useEffect(() => {
+    if (selectedCandidate) {
+      setActiveSiteId(selectedCandidate.id);
+    }
+  }, [selectedCandidate?.id, selectedCandidate?.lat, selectedCandidate?.lng]);
+
   // Simulator Tuning Parameters
   const [distanceDecayExponent, setDistanceDecayExponent] = useState<number>(2.0); // Lambda
   const [brandLoyaltyFactor, setBrandLoyaltyFactor] = useState<number>(1.25);
@@ -46,8 +53,11 @@ export const CannibalizationSimulatorModule: React.FC<CannibalizationSimulatorPr
   const [cStoreSqFt, setCStoreSqFt] = useState<number>(4800);
 
   const currentSite = useMemo(() => {
-    return candidates.find(c => c.id === activeSiteId) || candidates[0];
-  }, [candidates, activeSiteId]);
+    if (selectedCandidate && (selectedCandidate.id === activeSiteId || !activeSiteId)) {
+      return selectedCandidate;
+    }
+    return candidates.find(c => c.id === activeSiteId) || selectedCandidate || candidates[0];
+  }, [candidates, activeSiteId, selectedCandidate]);
 
   // Find all sister stores (e.g. ExxonMobil branded locations) in network
   const sisterStores = useMemo(() => {

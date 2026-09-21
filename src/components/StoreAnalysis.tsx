@@ -61,7 +61,17 @@ export const StoreAnalysis: React.FC<StoreAnalysisProps> = ({
     selectedCandidate?.id || candidates[0]?.id || ''
   );
 
-  const activeCandidate = candidates.find(c => c.id === selectedTargetId) || selectedCandidate || candidates[0];
+  // Sync if selectedCandidate changes from external click on map
+  useEffect(() => {
+    if (selectedCandidate) {
+      setSelectedTargetId(selectedCandidate.id);
+      setActiveMode('live-target');
+    }
+  }, [selectedCandidate?.id, selectedCandidate?.lat, selectedCandidate?.lng]);
+
+  const activeCandidate = (selectedCandidate && (selectedCandidate.id === selectedTargetId || !selectedTargetId))
+    ? selectedCandidate
+    : (candidates.find(c => c.id === selectedTargetId) || selectedCandidate || candidates[0]);
   const currentStore = selectedLocation || locations[0];
 
   // Interactive Forecourt Configurator State

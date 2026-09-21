@@ -47,7 +47,9 @@ export const CompetitorIntelligence: React.FC<CompetitorIntelligenceProps> = ({
   const [isLoadingLive, setIsLoadingLive] = useState<boolean>(false);
   const [lastFetchedAt, setLastFetchedAt] = useState<string | null>(null);
 
-  const activeTarget = candidates.find(c => c.id === selectedTargetId) || selectedCandidate || candidates[0] || null;
+  const activeTarget = (selectedCandidate && (selectedCandidate.id === selectedTargetId || !selectedTargetId))
+    ? selectedCandidate
+    : (candidates.find(c => c.id === selectedTargetId) || selectedCandidate || candidates[0] || null);
 
   // Fetch live OSM competitors around active target
   const fetchLiveCompetitors = async (lat: number, lng: number, radius: 1 | 3 | 5) => {
@@ -71,14 +73,14 @@ export const CompetitorIntelligence: React.FC<CompetitorIntelligenceProps> = ({
     if (activeTarget) {
       fetchLiveCompetitors(activeTarget.lat, activeTarget.lng, activeRadius);
     }
-  }, [selectedTargetId, activeRadius]);
+  }, [selectedTargetId, activeRadius, activeTarget?.lat, activeTarget?.lng]);
 
   // Sync with parent selectedCandidate
   useEffect(() => {
-    if (selectedCandidate && selectedCandidate.id !== selectedTargetId) {
+    if (selectedCandidate) {
       setSelectedTargetId(selectedCandidate.id);
     }
-  }, [selectedCandidate]);
+  }, [selectedCandidate?.id, selectedCandidate?.lat, selectedCandidate?.lng]);
 
   if (!activeTarget) {
     return (
