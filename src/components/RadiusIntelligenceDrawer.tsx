@@ -55,7 +55,7 @@ export const RadiusIntelligenceDrawer: React.FC<RadiusIntelligenceDrawerProps> =
   onRefreshOsm
 }) => {
   const [poiFilter, setPoiFilter] = useState<'all' | 'fuel' | 'cstore' | 'ev'>('all');
-  const [activeTab, setActiveTab] = useState<'overview' | 'scores' | 'risk' | 'story' | 'competitors' | 'economics' | 'multiring'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'scores' | 'isochrone' | 'marketshare' | 'footfall' | 'cannibalization' | 'risk' | 'story' | 'competitors' | 'multiring'>('overview');
   const [isSaved, setIsSaved] = useState(false);
 
   if (!data && !isLoading) return null;
@@ -161,7 +161,7 @@ export const RadiusIntelligenceDrawer: React.FC<RadiusIntelligenceDrawerProps> =
   } : null;
 
   return (
-    <div className="absolute right-4 top-20 bottom-4 w-96 md:w-[540px] bg-white/95 backdrop-blur-xl border border-purple-200 rounded-2xl shadow-2xl z-[1000] flex flex-col overflow-hidden animate-in slide-in-from-right duration-300">
+    <div className="absolute inset-x-2 sm:inset-x-auto sm:right-4 top-14 sm:top-20 bottom-16 sm:bottom-4 w-auto sm:w-[480px] md:w-[540px] max-w-[calc(100vw-16px)] bg-white/95 backdrop-blur-xl border border-purple-200 rounded-2xl shadow-2xl z-[1000] flex flex-col overflow-hidden animate-in slide-in-from-right duration-300">
       {/* Header */}
       <div className="p-4 border-b border-purple-100 bg-purple-50/60 flex items-center justify-between">
         <div className="flex items-center space-x-3">
@@ -248,6 +248,50 @@ export const RadiusIntelligenceDrawer: React.FC<RadiusIntelligenceDrawerProps> =
           <span className="px-1.5 py-0.2 bg-purple-100 text-purple-800 rounded text-[10px] font-bold">
             {data?.detailedScores?.compositeScore || 85}
           </span>
+        </button>
+        <button
+          onClick={() => setActiveTab('isochrone')}
+          className={`py-2.5 px-2.5 border-b-2 whitespace-nowrap transition-colors flex items-center gap-1 cursor-pointer ${
+            activeTab === 'isochrone'
+              ? 'border-purple-600 text-purple-700 font-bold'
+              : 'border-transparent text-purple-900/60 hover:text-purple-900'
+          }`}
+        >
+          <Navigation className="w-3.5 h-3.5" />
+          <span>Drive-Time Isochrones</span>
+        </button>
+        <button
+          onClick={() => setActiveTab('marketshare')}
+          className={`py-2.5 px-2.5 border-b-2 whitespace-nowrap transition-colors flex items-center gap-1 cursor-pointer ${
+            activeTab === 'marketshare'
+              ? 'border-purple-600 text-purple-700 font-bold'
+              : 'border-transparent text-purple-900/60 hover:text-purple-900'
+          }`}
+        >
+          <TrendingUp className="w-3.5 h-3.5" />
+          <span>Market Share & HHI</span>
+        </button>
+        <button
+          onClick={() => setActiveTab('footfall')}
+          className={`py-2.5 px-2.5 border-b-2 whitespace-nowrap transition-colors flex items-center gap-1 cursor-pointer ${
+            activeTab === 'footfall'
+              ? 'border-purple-600 text-purple-700 font-bold'
+              : 'border-transparent text-purple-900/60 hover:text-purple-900'
+          }`}
+        >
+          <Users className="w-3.5 h-3.5" />
+          <span>Commuter Flow</span>
+        </button>
+        <button
+          onClick={() => setActiveTab('cannibalization')}
+          className={`py-2.5 px-2.5 border-b-2 whitespace-nowrap transition-colors flex items-center gap-1 cursor-pointer ${
+            activeTab === 'cannibalization'
+              ? 'border-purple-600 text-purple-700 font-bold'
+              : 'border-transparent text-purple-900/60 hover:text-purple-900'
+          }`}
+        >
+          <ShieldCheck className="w-3.5 h-3.5" />
+          <span>Cannibalization</span>
         </button>
         <button
           onClick={() => setActiveTab('risk')}
@@ -796,6 +840,259 @@ export const RadiusIntelligenceDrawer: React.FC<RadiusIntelligenceDrawerProps> =
                       </tr>
                     </tbody>
                   </table>
+                </div>
+              </div>
+            )}
+
+            {/* Tab: Isochrone Analysis */}
+            {activeTab === 'isochrone' && data.isochrones && (
+              <div className="space-y-4">
+                <div className="p-4 rounded-xl bg-purple-50/70 border border-purple-200 shadow-sm">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-bold text-purple-900 uppercase tracking-wider flex items-center gap-1.5">
+                      <Navigation className="w-4 h-4 text-purple-600" />
+                      <span>Road Network Drive-Time Isochrones</span>
+                    </span>
+                    <span className="text-xs font-bold text-purple-700 bg-purple-100 px-2 py-0.5 rounded">
+                      Index: {data.isochrones.accessibilityIndex}/100
+                    </span>
+                  </div>
+                  <p className="text-xs text-purple-700 mt-1">
+                    True road network accessibility accounting for highway speed limits, turn restrictions, and natural topography barriers.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="p-3 bg-purple-50 rounded-xl border border-purple-200">
+                    <div className="text-[10px] uppercase font-bold text-purple-700">5-Min Isochrone</div>
+                    <div className="text-lg font-black text-purple-950 mt-0.5">
+                      {(data.isochrones.fiveMin.drivablePopulation).toLocaleString()}
+                    </div>
+                    <div className="text-[10px] text-purple-600">Drivable Population</div>
+                    <div className="text-[10px] font-mono text-purple-500 mt-1">{data.isochrones.fiveMin.drivableAreaSqMiles} sq mi</div>
+                  </div>
+
+                  <div className="p-3 bg-indigo-50 rounded-xl border border-indigo-200">
+                    <div className="text-[10px] uppercase font-bold text-indigo-700">10-Min Isochrone</div>
+                    <div className="text-lg font-black text-purple-950 mt-0.5">
+                      {(data.isochrones.tenMin.drivablePopulation).toLocaleString()}
+                    </div>
+                    <div className="text-[10px] text-indigo-600">Drivable Population</div>
+                    <div className="text-[10px] font-mono text-indigo-500 mt-1">{data.isochrones.tenMin.drivableAreaSqMiles} sq mi</div>
+                  </div>
+
+                  <div className="p-3 bg-purple-50 rounded-xl border border-purple-200">
+                    <div className="text-[10px] uppercase font-bold text-purple-700">15-Min Isochrone</div>
+                    <div className="text-lg font-black text-purple-950 mt-0.5">
+                      {(data.isochrones.fifteenMin.drivablePopulation).toLocaleString()}
+                    </div>
+                    <div className="text-[10px] text-purple-600">Drivable Population</div>
+                    <div className="text-[10px] font-mono text-purple-500 mt-1">{data.isochrones.fifteenMin.drivableAreaSqMiles} sq mi</div>
+                  </div>
+                </div>
+
+                {/* Road Network Barrier Log */}
+                <div className="space-y-2">
+                  <div className="text-xs font-bold text-purple-900 uppercase tracking-wider">Spatial Road Barriers Identified</div>
+                  <div className="space-y-2">
+                    {data.isochrones.roadNetworkBarriers.map((b, idx) => (
+                      <div key={idx} className="p-3 rounded-xl bg-white border border-purple-100 shadow-xs text-xs space-y-1">
+                        <div className="flex items-center justify-between font-bold text-purple-950">
+                          <span>{b.barrier}</span>
+                          <span className="text-[10px] px-2 py-0.5 rounded bg-amber-100 text-amber-800">{b.type}</span>
+                        </div>
+                        <p className="text-slate-600 text-[11px]">{b.impact}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Tab: Catchment Market Share & HHI */}
+            {activeTab === 'marketshare' && data.catchmentMarketShare && (
+              <div className="space-y-4">
+                <div className="p-4 rounded-xl bg-purple-50/70 border border-purple-200 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-xs font-bold text-purple-900 uppercase tracking-wider">
+                        Herfindahl-Hirschman Index (HHI)
+                      </div>
+                      <div className="text-2xl font-black text-purple-950 mt-0.5">
+                        {data.catchmentMarketShare.herfindahlIndex}
+                      </div>
+                    </div>
+                    <span className={`px-2.5 py-1 rounded-xl text-xs font-bold ${
+                      data.catchmentMarketShare.concentrationRating === 'Highly Concentrated'
+                        ? 'bg-rose-100 text-rose-800'
+                        : data.catchmentMarketShare.concentrationRating === 'Moderately Concentrated'
+                        ? 'bg-amber-100 text-amber-800'
+                        : 'bg-emerald-100 text-emerald-800'
+                    }`}>
+                      {data.catchmentMarketShare.concentrationRating}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-purple-700 mt-2 pt-2 border-t border-purple-200">
+                    <span>Projected Site Capture Share:</span>
+                    <span className="font-black text-purple-950">{data.catchmentMarketShare.proposedSiteMarketSharePct}% (Rank #{data.catchmentMarketShare.projectedRankInCatchment})</span>
+                  </div>
+                </div>
+
+                {/* Brands Breakdown Table */}
+                <div className="space-y-2">
+                  <div className="text-xs font-bold text-purple-900 uppercase tracking-wider">Catchment Brand Share Breakdown</div>
+                  <div className="space-y-2">
+                    {data.catchmentMarketShare.brands.map((b, idx) => (
+                      <div key={idx} className="p-3 rounded-xl bg-white border border-purple-100 shadow-xs text-xs flex items-center justify-between">
+                        <div>
+                          <div className="font-bold text-purple-950 flex items-center gap-1.5">
+                            <span>{b.brand}</span>
+                            <span className="text-[10px] text-purple-600 font-normal font-mono">({b.count} sites • {b.pumps} pumps)</span>
+                          </div>
+                          <div className="text-[10px] text-slate-500 mt-0.5">
+                            Brand Power: {b.brandPowerScore}/100 • Vulnerability: {b.vulnerabilityScore}%
+                          </div>
+                        </div>
+
+                        <div className="text-right">
+                          <div className="font-black text-purple-900">{b.pumpSharePct}% Share</div>
+                          <div className="text-[10px] text-purple-600 font-mono">~{b.estAnnualVolumeMGal}M gal/yr</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Tab: Commuter Flow 24h Profile */}
+            {activeTab === 'footfall' && data.commuterFlow && (
+              <div className="space-y-4">
+                <div className="p-4 rounded-xl bg-purple-50/70 border border-purple-200 shadow-sm space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-purple-900 uppercase tracking-wider">
+                      Daily Corridor Traffic & Capture
+                    </span>
+                    <span className="text-xs font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">
+                      {data.commuterFlow.projectedDailyTotalVisits.toLocaleString()} Daily Visits
+                    </span>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-2 text-xs pt-2">
+                    <div className="p-2.5 bg-white rounded-lg border border-purple-100">
+                      <div className="text-[10px] font-bold text-purple-600 uppercase">AM Rush Inbound</div>
+                      <div className="font-black text-purple-950 text-sm">{data.commuterFlow.amPeakDirectionalSplit.inboundPct}% Inbound</div>
+                      <div className="text-[10px] text-slate-500">{data.commuterFlow.amPeakDirectionalSplit.morningCommutersPerHour.toLocaleString()} veh/hr</div>
+                    </div>
+
+                    <div className="p-2.5 bg-white rounded-lg border border-purple-100">
+                      <div className="text-[10px] font-bold text-purple-600 uppercase">PM Rush Outbound</div>
+                      <div className="font-black text-purple-950 text-sm">{data.commuterFlow.pmPeakDirectionalSplit.outboundPct}% Outbound</div>
+                      <div className="text-[10px] text-slate-500">{data.commuterFlow.pmPeakDirectionalSplit.eveningCommutersPerHour.toLocaleString()} veh/hr</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Visit Breakdown */}
+                <div className="grid grid-cols-4 gap-2 text-center text-xs">
+                  <div className="p-2 bg-purple-50 rounded-xl border border-purple-100">
+                    <div className="text-[10px] font-bold text-purple-700">Fuel Only</div>
+                    <div className="font-bold text-purple-950">{data.commuterFlow.fuelOnlyVisits}</div>
+                  </div>
+                  <div className="p-2 bg-purple-50 rounded-xl border border-purple-100">
+                    <div className="text-[10px] font-bold text-purple-700">C-Store</div>
+                    <div className="font-bold text-purple-950">{data.commuterFlow.cStoreOnlyVisits}</div>
+                  </div>
+                  <div className="p-2 bg-purple-50 rounded-xl border border-purple-100">
+                    <div className="text-[10px] font-bold text-purple-700">Dual Stop</div>
+                    <div className="font-bold text-purple-950">{data.commuterFlow.dualFuelCStoreVisits}</div>
+                  </div>
+                  <div className="p-2 bg-purple-50 rounded-xl border border-purple-100">
+                    <div className="text-[10px] font-bold text-purple-700">EV Charge</div>
+                    <div className="font-bold text-purple-950">{data.commuterFlow.evChargingVisits}</div>
+                  </div>
+                </div>
+
+                {/* Top Rush Hour Intervals */}
+                <div className="space-y-1.5">
+                  <div className="text-xs font-bold text-purple-900 uppercase tracking-wider">Peak Traffic Hours</div>
+                  {data.commuterFlow.hourlyFlow.filter(h => h.amPeak || h.pmPeak || h.lunchSurge).map((h, idx) => (
+                    <div key={idx} className="p-2.5 rounded-lg bg-white border border-purple-100 flex items-center justify-between text-xs">
+                      <div>
+                        <span className="font-bold text-purple-950">{h.hour}</span>
+                        <span className={`ml-2 text-[10px] px-1.5 py-0.5 rounded font-bold ${
+                          h.amPeak ? 'bg-amber-100 text-amber-800' : h.pmPeak ? 'bg-purple-100 text-purple-800' : 'bg-emerald-100 text-emerald-800'
+                        }`}>
+                          {h.amPeak ? 'AM Rush' : h.pmPeak ? 'PM Rush' : 'Midday Lunch'}
+                        </span>
+                      </div>
+                      <div className="text-right">
+                        <span className="font-bold text-purple-900">{h.projectedVisits} visits</span>
+                        <span className="text-[10px] text-purple-600 block">{h.passingVehiclesAadt} passing AADT</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Tab: Cannibalization Simulator */}
+            {activeTab === 'cannibalization' && data.cannibalization && (
+              <div className="space-y-4">
+                <div className="p-4 rounded-xl bg-purple-50/70 border border-purple-200 shadow-sm space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-purple-900 uppercase tracking-wider">
+                      Huff Gravity Model Portfolio Net Lift
+                    </span>
+                    <span className="text-xs font-black text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">
+                      {data.cannibalization.netIncrementalLiftPct}% Incremental
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-xs pt-1">
+                    <div className="p-2.5 bg-white rounded-lg border border-purple-100">
+                      <div className="text-[10px] font-bold text-purple-600 uppercase">Gross New Volume</div>
+                      <div className="font-black text-purple-950 text-sm">
+                        {(data.cannibalization.grossNewVolumeGal / 1000000).toFixed(2)}M gal/yr
+                      </div>
+                    </div>
+                    <div className="p-2.5 bg-white rounded-lg border border-purple-100">
+                      <div className="text-[10px] font-bold text-emerald-600 uppercase">Net Incremental Volume</div>
+                      <div className="font-black text-emerald-700 text-sm">
+                        {(data.cannibalization.netIncrementalVolumeGal / 1000000).toFixed(2)}M gal/yr
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Nearby Sister Stores Table */}
+                <div className="space-y-2">
+                  <div className="text-xs font-bold text-purple-900 uppercase tracking-wider">
+                    Sister Stores in Trade Area ({data.cannibalization.nearbySisterStores.length})
+                  </div>
+                  {data.cannibalization.nearbySisterStores.length === 0 ? (
+                    <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-xs text-emerald-800 font-medium">
+                      Zero sister store collision detected within 8.5-mile radius. 100% volume is net incremental to portfolio!
+                    </div>
+                  ) : (
+                    data.cannibalization.nearbySisterStores.map((s, idx) => (
+                      <div key={idx} className="p-3 rounded-xl bg-white border border-purple-100 text-xs flex items-center justify-between">
+                        <div>
+                          <div className="font-bold text-purple-950">{s.sisterStoreName}</div>
+                          <div className="text-[10px] text-purple-600">{s.distanceMiles} mi • {s.driveTimeMinutes} min drive</div>
+                        </div>
+
+                        <div className="text-right">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            s.riskLevel === 'HIGH' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800'
+                          }`}>
+                            {s.projectedDiversionPct}% Diversion
+                          </span>
+                          <div className="text-[10px] text-rose-600 font-mono mt-0.5">-{s.divertedMonthlyVolumeGal.toLocaleString()} gal/mo</div>
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             )}

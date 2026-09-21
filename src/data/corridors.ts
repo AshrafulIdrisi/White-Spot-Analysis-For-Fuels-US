@@ -318,5 +318,113 @@ export const US_GROWTH_CORRIDORS: UsCorridor[] = [
     desc: 'Premier East Coast freight spine supplying NYC and DC with major travel center demand',
     aadtEstimate: 59000,
     growthTag: 'East Coast Freight Spine'
+  },
+  {
+    id: 'nj-turnpike-8a',
+    name: 'New Jersey Turnpike Exit 8A Logistics Corridor',
+    state: 'NJ',
+    region: 'Northeast',
+    city: 'Cranbury / Monroe',
+    lat: 40.325,
+    lng: -74.512,
+    desc: 'Busiest regional e-commerce fulfillment cluster serving NY/NJ metropolitan area',
+    aadtEstimate: 78000,
+    growthTag: 'Metro Megaregion Logistics'
+  },
+  {
+    id: 'ny-hudson-87',
+    name: 'New York I-87 & Orange County Industrial Gateway',
+    state: 'NY',
+    region: 'Northeast',
+    city: 'Newburgh / New Windsor',
+    lat: 41.488,
+    lng: -74.085,
+    desc: 'Hudson Valley distribution and commuter node with heavy passenger and commercial traffic',
+    aadtEstimate: 53000,
+    growthTag: 'Hudson Valley Freight'
+  },
+  {
+    id: 'ma-bos-495',
+    name: 'Boston I-495 Outer Ring & MetroWest Tech Feeder',
+    state: 'MA',
+    region: 'Northeast',
+    city: 'Marlborough / Westborough',
+    lat: 42.348,
+    lng: -71.585,
+    desc: 'Bio-tech and robotics outer beltway with affluent daily suburban commuters',
+    aadtEstimate: 47000,
+    growthTag: 'BioTech Outer Belt'
+  },
+  {
+    id: 'sc-chs-26',
+    name: 'Charleston I-26 & Nexton Ridgeville Gateway',
+    state: 'SC',
+    region: 'South',
+    city: 'Charleston / Summerville',
+    lat: 33.085,
+    lng: -80.195,
+    desc: 'Volvo, Boeing, and Port of Charleston supplier hub with massive residential master-plans',
+    aadtEstimate: 46000,
+    growthTag: 'Port & Aerospace Belt'
+  },
+  {
+    id: 'al-hsv-565',
+    name: 'Huntsville I-565 & Redstone Defense Hub',
+    state: 'AL',
+    region: 'South',
+    city: 'Huntsville / Madison',
+    lat: 34.715,
+    lng: -86.725,
+    desc: 'Fastest growing metro in Alabama with top engineer income and aerospace expansion',
+    aadtEstimate: 39000,
+    growthTag: 'Aerospace & Defense'
+  },
+  {
+    id: 'or-pdx-205',
+    name: 'Portland I-205 East & Happy Valley Parkway',
+    state: 'OR',
+    region: 'West',
+    city: 'Portland / Happy Valley',
+    lat: 45.435,
+    lng: -122.545,
+    desc: 'Growing Eastside bedroom community with high retail demand and EV charging deficit',
+    aadtEstimate: 42000,
+    growthTag: 'Pacific NW Infill'
+  },
+  {
+    id: 'nv-rno-80',
+    name: 'Reno-Sparks I-80 Tahoe-Reno Industrial Center',
+    state: 'NV',
+    region: 'West',
+    city: 'Reno / Sparks',
+    lat: 39.542,
+    lng: -119.685,
+    desc: 'Home to Tesla Gigafactory Nevada, Switch, and Google data hubs with massive shift commuter traffic',
+    aadtEstimate: 48000,
+    growthTag: 'CleanTech Megacenter'
+  },
+  {
+    id: 'mi-det-275',
+    name: 'Detroit I-275 / I-96 Western Suburbs Beltway',
+    state: 'MI',
+    region: 'Midwest',
+    city: 'Detroit / Novi',
+    lat: 42.475,
+    lng: -83.475,
+    desc: 'Major auto-tech R&D corridor with high daytime employment and commuter density',
+    aadtEstimate: 51000,
+    growthTag: 'Automotive R&D Spine'
+  },
+  {
+    id: 'wi-mke-94',
+    name: 'Milwaukee-Chicago I-94 Kenosha-Pleasant Prairie',
+    state: 'WI',
+    region: 'Midwest',
+    city: 'Kenosha / Pleasant Prairie',
+    lat: 42.565,
+    lng: -87.945,
+    desc: 'Key bi-state interstate commerce corridor between Milwaukee and Chicago',
+    aadtEstimate: 58000,
+    growthTag: 'Bi-State Commerce'
   }
 ];

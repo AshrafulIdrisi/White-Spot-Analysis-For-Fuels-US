@@ -719,14 +719,34 @@ export const WhiteSpotExplorer: React.FC<WhiteSpotExplorerProps> = ({
 
               <div className="h-48 w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <ScatterChart margin={{ top: 10, right: 10, bottom: 10, left: -20 }}>
-                    <XAxis type="number" dataKey="x" name="Demand Score" domain={[60, 100]} stroke="#a855f7" fontSize={10} />
-                    <YAxis type="number" dataKey="y" name="Supply Gap" domain={[60, 100]} stroke="#a855f7" fontSize={10} />
+                  <ScatterChart margin={{ top: 10, right: 15, bottom: 20, left: 10 }}>
+                    <XAxis 
+                      type="number" 
+                      dataKey="x" 
+                      name="Demand Score" 
+                      domain={[60, 100]} 
+                      stroke="#7e22ce" 
+                      fontSize={10} 
+                      tickLine={false}
+                      tickFormatter={(val) => `${val}`}
+                      label={{ value: 'Demand Score →', position: 'insideBottom', offset: -10, fontSize: 10, fill: '#7e22ce', fontWeight: 600 }}
+                    />
+                    <YAxis 
+                      type="number" 
+                      dataKey="y" 
+                      name="Supply Gap" 
+                      domain={[60, 100]} 
+                      stroke="#7e22ce" 
+                      fontSize={10} 
+                      tickLine={false}
+                      width={35}
+                      tickFormatter={(val) => `${val}`}
+                    />
                     <ZAxis type="number" dataKey="z" range={[60, 200]} />
                     <Tooltip 
                       cursor={{ strokeDasharray: '3 3' }}
                       contentStyle={{ backgroundColor: '#ffffff', borderColor: '#e9d5ff', borderRadius: '12px', fontSize: '11px', color: '#3b0764' }}
-                      formatter={(val, name, item: any) => [`Score: ${item.payload.score}`, item.payload.cityState]}
+                      formatter={(val, name, item: any) => [`Score: ${item.payload.score} (Demand: ${item.payload.x}, Supply Gap: ${item.payload.y})`, item.payload.cityState]}
                     />
                     <Scatter data={scatterData} fill="#9333ea">
                       {scatterData.map((entry, index) => (

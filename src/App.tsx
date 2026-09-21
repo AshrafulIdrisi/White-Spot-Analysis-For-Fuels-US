@@ -17,6 +17,8 @@ import { AdminSettings } from './components/AdminSettings';
 import { ReportsExports } from './components/ReportsExports';
 import { NewSiteModal } from './components/NewSiteModal';
 import { SavedVaultModule } from './components/SavedVaultModule';
+import { InvestmentMatrixModule } from './components/InvestmentMatrixModule';
+import { CannibalizationSimulatorModule } from './components/CannibalizationSimulatorModule';
 import { 
   StoreLocationRecord, 
   WhiteSpotCandidate, 
@@ -38,6 +40,7 @@ import {
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>('overview');
+  const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState<boolean>(false);
   const [locations, setLocations] = useState<StoreLocationRecord[]>(US_STORE_LOCATIONS);
   const [whiteSpots, setWhiteSpots] = useState<WhiteSpotCandidate[]>(() => getSavedVaultCandidates());
   const [marketShareData, setMarketShareData] = useState<MarketShareRecord[]>(US_MARKET_SHARE_BRANDS);
@@ -51,6 +54,12 @@ export default function App() {
   // Modal State for New Site Evaluation
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalInitialCoords, setModalInitialCoords] = useState<{ lat?: number; lng?: number; address?: string }>({});
+
+  useEffect(() => {
+    const handleToggle = () => setIsMobileDrawerOpen(prev => !prev);
+    window.addEventListener('toggle-mobile-menu', handleToggle);
+    return () => window.removeEventListener('toggle-mobile-menu', handleToggle);
+  }, []);
 
   const handleCommitNewStore = (newStore: StoreLocationRecord) => {
     setLocations(prev => [newStore, ...prev]);
@@ -161,12 +170,14 @@ export default function App() {
 
   return (
     <div className="flex h-screen bg-[#faf8ff] text-slate-800 overflow-hidden font-sans antialiased">
-      {/* Sidebar Navigation */}
+      {/* Sidebar Navigation (Desktop Persistent + Mobile Drawer & Bottom Nav) */}
       <Sidebar 
         activeTab={activeTab} 
         onSelectTab={setActiveTab} 
         whiteSpotCount={whiteSpots.length}
         locationCount={locations.length}
+        isMobileOpen={isMobileDrawerOpen}
+        onCloseMobile={() => setIsMobileDrawerOpen(false)}
       />
 
       {/* Main Content Area */}
@@ -183,9 +194,10 @@ export default function App() {
             setActiveTab('map');
           }}
           onNewSiteClick={() => setIsModalOpen(true)}
+          onToggleMobileMenu={() => setIsMobileDrawerOpen(prev => !prev)}
         />
 
-        <main className="flex-1 overflow-y-auto bg-[#faf8ff] custom-scrollbar">
+        <main className="flex-1 overflow-y-auto bg-[#faf8ff] custom-scrollbar pb-16 lg:pb-0">
           {activeTab === 'overview' && (
             <ExecutiveOverview 
               locations={locations}
@@ -289,7 +301,29 @@ export default function App() {
               locations={locations}
               selectedLocation={selectedLocation}
               onSelectLocation={setSelectedLocation}
-              onNavigateToMap={() => setActiveTab('map')}
+              selectedCandidate={selectedWhiteSpot}
+              onSelectCandidate={(c) => {
+                setSelectedWhiteSpot(c);
+                setTargetMapCoord({
+                  lat: c.lat,
+                  lng: c.lng,
+                  displayName: c.candidateName,
+                  address: c.address
+                });
+              }}
+              candidates={whiteSpots}
+              onNavigateToMap={(c) => {
+                if (c) {
+                  setSelectedWhiteSpot(c);
+                  setTargetMapCoord({
+                    lat: c.lat,
+                    lng: c.lng,
+                    displayName: c.candidateName,
+                    address: c.address
+                  });
+                }
+                setActiveTab('map');
+              }}
             />
           )}
 
@@ -297,12 +331,86 @@ export default function App() {
             <CompetitorIntelligence
               candidates={whiteSpots}
               locations={locations}
+              selectedCandidate={selectedWhiteSpot}
+              onSelectCandidate={(c) => {
+                setSelectedWhiteSpot(c);
+                setTargetMapCoord({
+                  lat: c.lat,
+                  lng: c.lng,
+                  displayName: c.candidateName,
+                  address: c.address
+                });
+              }}
+              onNavigateToMap={(c) => {
+                if (c) {
+                  setSelectedWhiteSpot(c);
+                  setTargetMapCoord({
+                    lat: c.lat,
+                    lng: c.lng,
+                    displayName: c.candidateName,
+                    address: c.address
+                  });
+                }
+                setActiveTab('map');
+              }}
+            />
+          )}
+
+          {activeTab === 'cannibalization' && (
+            <CannibalizationSimulatorModule
+              candidates={whiteSpots}
+              locations={locations}
+              selectedCandidate={selectedWhiteSpot}
+              onSelectCandidate={setSelectedWhiteSpot}
+              onNavigateToMap={(c) => {
+                setSelectedWhiteSpot(c);
+                setTargetMapCoord({
+                  lat: c.lat,
+                  lng: c.lng,
+                  displayName: c.candidateName,
+                  address: c.address
+                });
+                setActiveTab('map');
+              }}
+            />
+          )}
+
+          {activeTab === 'matrix' && (
+            <InvestmentMatrixModule
+              candidates={whiteSpots}
+              locations={locations}
+              onSelectCandidateForMap={(c) => {
+                setSelectedWhiteSpot(c);
+                setTargetMapCoord({
+                  lat: c.lat,
+                  lng: c.lng,
+                  displayName: c.candidateName,
+                  address: c.address
+                });
+                setActiveTab('map');
+              }}
+              onOpenAIRecommendation={handleOpenAIRecommendation}
             />
           )}
 
           {activeTab === 'marketshare' && (
             <MarketShareModule
               marketShareData={marketShareData}
+              whiteSpots={whiteSpots}
+              locations={locations}
+              selectedWhiteSpot={selectedWhiteSpot}
+              onSelectWhiteSpot={setSelectedWhiteSpot}
+              onNavigateToMap={(c) => {
+                setSelectedWhiteSpot(c);
+                setTargetMapCoord({
+                  lat: c.lat,
+                  lng: c.lng,
+                  displayName: c.candidateName,
+                  address: c.address
+                });
+                setActiveTab('map');
+              }}
+              onOpenAIRecommendation={handleOpenAIRecommendation}
             />
           )}
 
@@ -310,6 +418,19 @@ export default function App() {
             <FootfallIntelligence
               candidates={whiteSpots}
               locations={locations}
+              selectedWhiteSpot={selectedWhiteSpot}
+              onSelectWhiteSpot={setSelectedWhiteSpot}
+              onNavigateToMap={(c) => {
+                setSelectedWhiteSpot(c);
+                setTargetMapCoord({
+                  lat: c.lat,
+                  lng: c.lng,
+                  displayName: c.candidateName,
+                  address: c.address
+                });
+                setActiveTab('map');
+              }}
+              onOpenAIRecommendation={handleOpenAIRecommendation}
             />
           )}
 
@@ -317,6 +438,28 @@ export default function App() {
             <CatchmentAnalysis
               candidates={whiteSpots}
               locations={locations}
+              selectedCandidate={selectedWhiteSpot}
+              onSelectCandidate={(c) => {
+                setSelectedWhiteSpot(c);
+                setTargetMapCoord({
+                  lat: c.lat,
+                  lng: c.lng,
+                  displayName: c.candidateName,
+                  address: c.address
+                });
+              }}
+              onNavigateToMap={(c) => {
+                if (c) {
+                  setSelectedWhiteSpot(c);
+                  setTargetMapCoord({
+                    lat: c.lat,
+                    lng: c.lng,
+                    displayName: c.candidateName,
+                    address: c.address
+                  });
+                }
+                setActiveTab('map');
+              }}
             />
           )}
 

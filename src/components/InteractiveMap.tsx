@@ -174,6 +174,9 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
           competitorsPumps: analysisResult.totalPumps || 16
         });
         onAddWhiteSpot(candidateRecord);
+        if (onSelectWhiteSpot) {
+          onSelectWhiteSpot(candidateRecord);
+        }
         setSavedToVaultToast({
           name: candidateRecord.candidateName,
           score: candidateRecord.opportunityScore,
@@ -549,6 +552,37 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
         const pinMarker = L.marker([pinnedCoord.lat, pinnedCoord.lng], { icon: pinIcon });
         circlesGroup.addLayer(pinMarker);
       }
+
+      // Render Dynamic Drive-Time Isochrones if available
+      if (radiusData?.isochrones) {
+        // 15-min polygon (blue/purple)
+        const poly15 = L.polygon(radiusData.isochrones.fifteenMin.polygonCoordinates, {
+          color: '#6366f1',
+          weight: 2,
+          dashArray: '4, 4',
+          fillColor: '#6366f1',
+          fillOpacity: 0.08
+        }).bindTooltip(`15-Min Drive Isochrone (${radiusData.isochrones.fifteenMin.drivablePopulation.toLocaleString()} Pop)`, { direction: 'top' });
+        circlesGroup.addLayer(poly15);
+
+        // 10-min polygon (indigo)
+        const poly10 = L.polygon(radiusData.isochrones.tenMin.polygonCoordinates, {
+          color: '#8b5cf6',
+          weight: 2,
+          fillColor: '#8b5cf6',
+          fillOpacity: 0.14
+        }).bindTooltip(`10-Min Drive Isochrone (${radiusData.isochrones.tenMin.drivablePopulation.toLocaleString()} Pop)`, { direction: 'top' });
+        circlesGroup.addLayer(poly10);
+
+        // 5-min polygon (purple)
+        const poly5 = L.polygon(radiusData.isochrones.fiveMin.polygonCoordinates, {
+          color: '#a855f7',
+          weight: 2.5,
+          fillColor: '#a855f7',
+          fillOpacity: 0.22
+        }).bindTooltip(`5-Min Drive Isochrone (${radiusData.isochrones.fiveMin.drivablePopulation.toLocaleString()} Pop)`, { direction: 'top' });
+        circlesGroup.addLayer(poly5);
+      }
     }
 
     // 2. Render Competitors strictly for the active clicked point within the selected radius
@@ -739,7 +773,8 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
     pinnedCoord,
     layers, 
     selectedRadiusMiles, 
-    activeCatchmentMode
+    activeCatchmentMode,
+    radiusData
   ]);
 
   // Pan to selected white spot
@@ -855,46 +890,46 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
       <div ref={mapContainerRef} className="w-full h-full z-0 cursor-crosshair" />
 
       {/* Top Floating Control Bar */}
-      <div className="absolute top-4 left-4 right-4 z-20 flex flex-wrap items-center justify-between gap-3 pointer-events-none">
+      <div className="absolute top-2 sm:top-4 left-2 sm:left-4 right-2 sm:right-4 z-20 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2 pointer-events-none">
         {/* Search Input Pill */}
-        <form onSubmit={handleSearchSubmit} className="pointer-events-auto flex items-center gap-2 bg-white/95 backdrop-blur-md p-1.5 rounded-2xl border border-purple-200 shadow-xl max-w-md w-full">
+        <form onSubmit={handleSearchSubmit} className="pointer-events-auto flex items-center gap-2 bg-white/95 backdrop-blur-md p-1.5 rounded-2xl border border-purple-200 shadow-xl max-w-full md:max-w-md w-full">
           <div className="relative flex-1">
             <Search className="w-4 h-4 text-purple-600 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Search US Metro, ZIP, or click anywhere on map for 1,3,5M analysis..."
+              placeholder="Search US Metro, ZIP, or click map..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full bg-transparent text-xs text-purple-950 pl-9 pr-3 py-1.5 focus:outline-none placeholder:text-purple-400"
             />
           </div>
-          <button type="submit" className="px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition-all shadow-md shadow-purple-500/20 cursor-pointer">
+          <button type="submit" className="px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition-all shadow-md shadow-purple-500/20 cursor-pointer flex-shrink-0 min-h-[34px]">
             Analyze
           </button>
         </form>
 
-        {/* Quick Radius & OSM Action Controls */}
-        <div className="pointer-events-auto flex items-center gap-2 bg-white/95 backdrop-blur-md p-1.5 rounded-2xl border border-purple-200 shadow-xl">
+        {/* Quick Radius & OSM Action Controls - Scrollable on Mobile */}
+        <div className="pointer-events-auto flex items-center gap-1.5 sm:gap-2 bg-white/95 backdrop-blur-md p-1.5 rounded-2xl border border-purple-200 shadow-xl overflow-x-auto max-w-full custom-scrollbar">
           {/* Active Site Pin / Clear Selection Button */}
           {(pinnedCoord || selectedWhiteSpot || selectedLocation) && (
             <button
               onClick={handleClearSelection}
-              className="px-2.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+              className="px-2.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold flex items-center gap-1 transition-all cursor-pointer shadow-xs flex-shrink-0"
               title="Clear selected location and reset catchment"
             >
               <X className="w-3.5 h-3.5" />
-              <span>Clear Point</span>
+              <span className="hidden xs:inline">Clear</span>
             </button>
           )}
 
           {/* 1, 3, 5 Mile Radius Switcher Pills */}
-          <div className="flex items-center bg-purple-50 rounded-xl p-0.5 border border-purple-100">
-            <span className="text-[10px] text-purple-900/70 font-bold px-2 hidden md:inline">RADIUS:</span>
+          <div className="flex items-center bg-purple-50 rounded-xl p-0.5 border border-purple-100 flex-shrink-0">
+            <span className="text-[10px] text-purple-900/70 font-bold px-1.5 hidden md:inline">RADIUS:</span>
             {([1, 3, 5] as const).map((r) => (
               <button
                 key={r}
                 onClick={() => handleRadiusChange(r)}
-                className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                className={`px-2 sm:px-2.5 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
                   selectedRadiusMiles === r
                     ? 'bg-purple-600 text-white shadow-sm shadow-purple-500/20'
                     : 'text-purple-700 hover:text-purple-950 hover:bg-purple-100/60'
@@ -908,7 +943,7 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
           {/* Competitor Forecourt & Pumps Explorer Button */}
           <button
             onClick={() => setShowCompetitorPumpsPanel(!showCompetitorPumpsPanel)}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all border cursor-pointer ${
+            className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all border cursor-pointer flex-shrink-0 ${
               showCompetitorPumpsPanel
                 ? 'bg-purple-600 text-white border-purple-600 shadow-md shadow-purple-500/25'
                 : 'bg-white text-purple-800 border-purple-200 hover:bg-purple-50'
@@ -916,16 +951,16 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
             title="Inspect Competitor Fuel Stations & Forecourt Pumps"
           >
             <Fuel className={`w-3.5 h-3.5 ${showCompetitorPumpsPanel ? 'text-white' : 'text-purple-600'}`} />
-            <span>Competitor Pumps ({activeCatchmentCompetitors.length})</span>
+            <span>Pumps ({activeCatchmentCompetitors.length})</span>
           </button>
 
           {/* Regional OSM White Spot Scanner Button */}
           <button
             onClick={() => setShowOsmScannerModal(true)}
-            className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-purple-500/20 transition-all cursor-pointer"
+            className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-purple-500/20 transition-all cursor-pointer flex-shrink-0"
           >
             <Sparkles className="w-3.5 h-3.5 text-white" />
-            <span>Scan Voids</span>
+            <span>Scan</span>
           </button>
 
           {/* Geoapify Place Details & Isochrone Button */}
@@ -944,11 +979,11 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
               setGeoapifyTarget(c);
               setShowGeoapifyModal(true);
             }}
-            className="px-2.5 py-1.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-900 border border-purple-200 text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+            className="px-2 sm:px-2.5 py-1.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-900 border border-purple-200 text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer flex-shrink-0"
             title="Geoapify Places, Fuel Details & 5/10/15-Min Drive Catchment"
           >
             <Sparkles className="w-3.5 h-3.5 text-purple-600" />
-            <span>Geoapify Details</span>
+            <span className="hidden xs:inline">Geoapify</span>
           </button>
 
           {/* Geoapify Drive-Time Isochrones Button */}
@@ -966,7 +1001,7 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
               handleComputeIsochrones(c.lat, c.lng);
             }}
             disabled={isComputingIsochrones}
-            className={`px-2.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all border cursor-pointer ${
+            className={`px-2 sm:px-2.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all border cursor-pointer flex-shrink-0 ${
               isochroneCount > 0
                 ? 'bg-indigo-50 text-indigo-700 border-indigo-300 shadow-xs'
                 : 'bg-white text-purple-800 border-purple-200 hover:bg-purple-50'
@@ -974,23 +1009,23 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
             title="Compute 5, 10, and 15-minute road network drive-time Isochrones using Geoapify"
           >
             <Clock className={`w-3.5 h-3.5 text-purple-600 ${isComputingIsochrones ? 'animate-spin' : ''}`} />
-            <span>{isComputingIsochrones ? 'Routing...' : isochroneCount > 0 ? `Isochrones (${isochroneCount})` : 'Drive Isochrone'}</span>
+            <span>{isComputingIsochrones ? 'Routing...' : isochroneCount > 0 ? `Drive (${isochroneCount})` : 'Drive'}</span>
           </button>
 
           {/* API Keys & Providers Guide Button */}
           <button
             onClick={() => setShowApiKeyModal(true)}
-            className="px-2.5 py-1.5 rounded-xl bg-white hover:bg-purple-50 text-purple-800 border border-purple-200 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+            className="px-2 sm:px-2.5 py-1.5 rounded-xl bg-white hover:bg-purple-50 text-purple-800 border border-purple-200 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer flex-shrink-0"
             title="Map Data Providers & API Key Guide"
           >
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span>API Guide & Keys</span>
+            <span className="hidden sm:inline">API Guide</span>
           </button>
 
           {/* Layer Panel Button */}
           <button
             onClick={() => setShowLayerPanel(!showLayerPanel)}
-            className={`p-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+            className={`p-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer flex-shrink-0 min-w-[34px] min-h-[34px] justify-center ${
               showLayerPanel 
                 ? 'bg-purple-600 text-white border-purple-600 shadow-md shadow-purple-500/20' 
                 : 'bg-white text-purple-700 border-purple-200 hover:bg-purple-50'
@@ -1003,7 +1038,7 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
 
       {/* Floating Left: GIS Layer Panel */}
       {showLayerPanel && (
-        <div className="absolute top-20 left-4 z-20 w-72 max-h-[calc(100vh-160px)] overflow-y-auto bg-white/95 backdrop-blur-md rounded-2xl border border-purple-200 p-4 shadow-2xl space-y-4 custom-scrollbar">
+        <div className="absolute top-28 sm:top-20 left-2 sm:left-4 z-30 w-[calc(100vw-16px)] sm:w-72 max-h-[calc(100vh-180px)] overflow-y-auto bg-white/95 backdrop-blur-md rounded-2xl border border-purple-200 p-4 shadow-2xl space-y-4 custom-scrollbar">
           <div className="flex items-center justify-between border-b border-purple-100 pb-2.5">
             <div className="flex items-center gap-2">
               <Layers className="w-4 h-4 text-purple-600" />
@@ -1186,26 +1221,26 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
       />
 
       {/* Bottom Floating Legend & Active Forecourt Summary */}
-      <div className="absolute bottom-3 left-4 right-4 z-10 pointer-events-none flex flex-wrap items-center justify-between gap-2">
+      <div className="absolute bottom-14 sm:bottom-3 left-2 sm:left-4 right-2 sm:right-4 z-10 pointer-events-none flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
         {savedToVaultToast && (
-          <div className="pointer-events-auto bg-purple-950 text-white px-4 py-2 rounded-2xl shadow-2xl border border-purple-500/40 flex items-center gap-2.5 text-xs font-bold animate-in fade-in slide-in-from-bottom-2 duration-200">
+          <div className="pointer-events-auto bg-purple-950 text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-2xl shadow-2xl border border-purple-500/40 flex items-center gap-2 text-xs font-bold animate-in fade-in slide-in-from-bottom-2 duration-200">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-            <span className="text-purple-200">Preserved in Vault:</span>
-            <span className="text-white truncate max-w-[180px]">{savedToVaultToast.name}</span>
+            <span className="text-purple-200 hidden sm:inline">Preserved in Vault:</span>
+            <span className="text-white truncate max-w-[140px] sm:max-w-[180px]">{savedToVaultToast.name}</span>
             <span className="px-1.5 py-0.5 rounded-md bg-purple-800 text-purple-200 text-[10px]">
               Score {savedToVaultToast.score}
             </span>
-            <span className="text-emerald-400 text-[11px]">✓ No Duplicates</span>
+            <span className="text-emerald-400 text-[10px] sm:text-[11px]">✓ Vaulted</span>
           </div>
         )}
 
-        <div className="flex flex-wrap items-center gap-2.5 text-[11px] font-sans text-purple-950 bg-white/95 backdrop-blur-md px-3.5 py-1.5 rounded-xl border border-purple-200 shadow-xl pointer-events-auto">
+        <div className="hidden md:flex flex-wrap items-center gap-2 text-[11px] font-sans text-purple-950 bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-xl border border-purple-200 shadow-xl pointer-events-auto">
           <div className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="font-semibold text-emerald-700">OpenStreetMap + Geoapify Live</span>
+            <span className="font-semibold text-emerald-700">OSM + Geoapify Live</span>
           </div>
           <span className="text-purple-300">•</span>
-          <span className="text-purple-700 font-medium">Click anywhere on map for live 1/3/5M analysis</span>
+          <span className="text-purple-700 font-medium">Click map for 1/3/5M</span>
           <span className="text-purple-300">•</span>
           <button
             onClick={() => setShowApiKeyModal(true)}
@@ -1217,7 +1252,7 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
 
         {/* Dynamic Trade Area Forecourt Badge */}
         {(pinnedCoord || selectedWhiteSpot || selectedLocation) && (
-          <div className="flex items-center gap-2 bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-xl border border-purple-200 shadow-xl pointer-events-auto text-xs">
+          <div className="flex items-center gap-2 bg-white/95 backdrop-blur-md px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl border border-purple-200 shadow-xl pointer-events-auto text-xs">
             <span className="text-purple-700 font-bold flex items-center gap-1">
               <Fuel className="w-3.5 h-3.5" />
               {activeCatchmentCompetitors.reduce((sum, p) => sum + (p.pumpsCount || 8), 0)} Pumps
@@ -1225,13 +1260,13 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
             <span className="text-purple-200">|</span>
             <span className="text-emerald-700 font-bold flex items-center gap-1">
               <Store className="w-3.5 h-3.5" />
-              {activeCatchmentCompetitors.length} Stations & Stores
+              {activeCatchmentCompetitors.length} Fuel & C-Stores
             </span>
             <button
               onClick={() => setShowCompetitorPumpsPanel(true)}
-              className="ml-1 px-2.5 py-0.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-bold text-[10px] cursor-pointer transition-all shadow-sm shadow-purple-500/20"
+              className="ml-1 px-2 py-0.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-bold text-[10px] cursor-pointer transition-all shadow-sm shadow-purple-500/20"
             >
-              View Forecourts
+              Forecourts
             </button>
           </div>
         )}

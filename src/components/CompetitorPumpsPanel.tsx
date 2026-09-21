@@ -77,7 +77,7 @@ export const CompetitorPumpsPanel: React.FC<CompetitorPumpsPanelProps> = ({
   )).slice(0, 8);
 
   return (
-    <div className="absolute top-16 right-4 z-30 w-96 max-h-[calc(100vh-130px)] bg-white/95 backdrop-blur-md rounded-2xl border border-purple-200 shadow-2xl flex flex-col overflow-hidden animate-fadeIn">
+    <div className="absolute top-14 sm:top-16 inset-x-2 sm:inset-x-auto sm:right-4 z-30 w-auto sm:w-96 max-h-[calc(100vh-140px)] bg-white/95 backdrop-blur-md rounded-2xl border border-purple-200 shadow-2xl flex flex-col overflow-hidden animate-fadeIn">
       {/* Header */}
       <div className="p-4 border-b border-purple-100 bg-purple-50/70 flex items-center justify-between">
         <div className="flex items-center gap-2.5">

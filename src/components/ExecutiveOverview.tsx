@@ -34,7 +34,8 @@ import {
   Line, 
   PieChart, 
   Pie, 
-  Cell 
+  Cell,
+  Legend
 } from 'recharts';
 import { WhiteSpotCandidate, StoreLocationRecord } from '../types';
 
@@ -262,6 +263,122 @@ export const ExecutiveOverview: React.FC<ExecutiveOverviewProps> = ({
           </div>
           <div className="text-[11px] text-purple-600 font-medium">
             CapEx: ${(totalPipelineCapEx / 1000000).toFixed(1)}M total
+          </div>
+        </div>
+      </div>
+
+      {/* Executive Visual Analytics Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Chart 1: Opportunity Score vs Corridor Traffic AADT */}
+        <div className="p-5 rounded-3xl bg-white border border-purple-200 shadow-xl space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-black text-purple-950 flex items-center gap-2">
+                <Target className="w-4 h-4 text-purple-700" />
+                Pipeline Opportunity Index vs Traffic Volume
+              </h3>
+              <p className="text-xs text-purple-600">
+                Composite feasibility score vs daily traffic volume (k AADT) across top corridors
+              </p>
+            </div>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 border border-purple-200">
+              Top Ranked Sites
+            </span>
+          </div>
+
+          <div className="h-64 w-full min-h-[240px]">
+            {corridorChartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={corridorChartData} margin={{ top: 10, right: 15, left: 5, bottom: 30 }}>
+                  <XAxis 
+                    dataKey="name" 
+                    stroke="#7e22ce" 
+                    fontSize={10} 
+                    tickLine={false} 
+                    interval={0}
+                    angle={-20}
+                    textAnchor="end"
+                    height={40}
+                  />
+                  <YAxis 
+                    stroke="#7e22ce" 
+                    fontSize={10} 
+                    tickLine={false} 
+                    domain={[0, 100]}
+                    width={35}
+                    tickFormatter={(val) => `${val}`}
+                  />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#ffffff', borderColor: '#d8b4fe', borderRadius: '12px', fontSize: '11px', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)' }}
+                    formatter={(val: any, name: any) => [
+                      name === 'Opportunity Score' ? `${val} / 100` : `${val}k vehicles/day`,
+                      name
+                    ]}
+                  />
+                  <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '4px' }} />
+                  <Bar dataKey="score" name="Opportunity Score" fill="#7e22ce" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="traffic" name="Traffic AADT (k)" fill="#10b981" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center text-xs text-purple-600">
+                No active candidate sites available for chart.
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Chart 2: Projected Annual Revenue by Corridor Candidate */}
+        <div className="p-5 rounded-3xl bg-white border border-purple-200 shadow-xl space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-black text-purple-950 flex items-center gap-2">
+                <DollarSign className="w-4 h-4 text-emerald-600" />
+                Projected Annual Turnover ($M)
+              </h3>
+              <p className="text-xs text-purple-600">
+                Underwritten fuel + convenience store top-line revenue potential ($M/yr)
+              </p>
+            </div>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+              Pro-Forma DCF
+            </span>
+          </div>
+
+          <div className="h-64 w-full min-h-[240px]">
+            {corridorChartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={corridorChartData} margin={{ top: 10, right: 15, left: 5, bottom: 30 }}>
+                  <XAxis 
+                    dataKey="name" 
+                    stroke="#7e22ce" 
+                    fontSize={10} 
+                    tickLine={false} 
+                    interval={0}
+                    angle={-20}
+                    textAnchor="end"
+                    height={40}
+                  />
+                  <YAxis 
+                    stroke="#7e22ce" 
+                    fontSize={10} 
+                    tickLine={false}
+                    width={45}
+                    tickFormatter={(val) => `$${val}M`}
+                  />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#ffffff', borderColor: '#d8b4fe', borderRadius: '12px', fontSize: '11px', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)' }}
+                    formatter={(val: any) => [`$${val}M / yr`, 'Projected Total Revenue']}
+                  />
+                  <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '4px' }} />
+                  <Bar dataKey="revenueMil" name="Annual Revenue ($M)" fill="#059669" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center text-xs text-purple-600">
+                No active candidate revenue data.
+              </div>
+            )}
           </div>
         </div>
       </div>

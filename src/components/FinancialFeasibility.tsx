@@ -21,7 +21,8 @@ import {
   Tooltip, 
   BarChart, 
   Bar, 
-  Legend 
+  Legend,
+  Cell
 } from 'recharts';
 import { WhiteSpotCandidate, FinancialScenarioConfig } from '../types';
 
@@ -63,6 +64,15 @@ export const FinancialFeasibility: React.FC<FinancialFeasibilityProps> = ({ cand
   const cStoreFitoutCost = 650000;
   const softCostsAndWorkingCapital = 350000;
   const totalCapEx = landCost + constructionCost + pumpAndEquipmentCost + evChargerCost + cStoreFitoutCost + softCostsAndWorkingCapital;
+
+  const capexBreakdownData = [
+    { name: 'Land Acquisition', cost: Math.round(landCost / 1000), fill: '#7e22ce' },
+    { name: 'Site Construction', cost: Math.round(constructionCost / 1000), fill: '#9333ea' },
+    { name: 'Pumps & Tanks', cost: Math.round(pumpAndEquipmentCost / 1000), fill: '#a855f7' },
+    { name: 'C-Store Fitout', cost: Math.round(cStoreFitoutCost / 1000), fill: '#c084fc' },
+    { name: 'EV 350kW Plazas', cost: Math.round(evChargerCost / 1000), fill: '#10b981' },
+    { name: 'Soft Costs & Permitting', cost: Math.round(softCostsAndWorkingCapital / 1000), fill: '#64748b' },
+  ];
 
   const baseFuelGal = activeCandidate.projectedAnnualFuelGallons || 1800000;
   const baseRevenue = activeCandidate.projectedAnnualTotalRevenue || 5500000;
@@ -270,6 +280,118 @@ export const FinancialFeasibility: React.FC<FinancialFeasibilityProps> = ({ cand
                 className="w-full accent-purple-600 cursor-pointer"
               />
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Financial Pro-Forma Visual Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Chart 1: 10-Year DCF Pro-Forma Cash Flow & Cumulative Payback */}
+        <div className="p-5 rounded-3xl bg-white border border-purple-200 shadow-xl space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-black text-purple-950 flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-purple-700" />
+                10-Year EBITDA & Cumulative Cash Flow ($k)
+              </h3>
+              <p className="text-xs text-purple-600">
+                Annual operational earnings vs cumulative return showing initial CapEx recovery timeline
+              </p>
+            </div>
+            <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-800 border border-purple-200">
+              Payback: {paybackYears} Yrs
+            </span>
+          </div>
+
+          <div className="h-64 w-full min-h-[240px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={cashFlowTimeline} margin={{ top: 10, right: 20, left: 10, bottom: 5 }}>
+                <XAxis dataKey="year" stroke="#7e22ce" fontSize={11} tickLine={false} />
+                <YAxis 
+                  stroke="#7e22ce" 
+                  fontSize={10} 
+                  tickLine={false}
+                  width={55}
+                  tickFormatter={(val) => `$${Number(val).toLocaleString()}k`}
+                />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: '#ffffff', borderColor: '#d8b4fe', borderRadius: '12px', fontSize: '11px', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)' }}
+                  formatter={(val: any, name: any) => [
+                    `$${Number(val).toLocaleString()}k`,
+                    name === 'Annual EBITDA ($k)' ? 'Annual EBITDA' : 'Cumulative DCF'
+                  ]}
+                />
+                <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '4px' }} />
+                <Line 
+                  type="monotone" 
+                  dataKey="annualEbitda" 
+                  name="Annual EBITDA ($k)" 
+                  stroke="#10b981" 
+                  strokeWidth={3} 
+                  dot={{ r: 4, fill: '#10b981' }} 
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="cumulativeCashFlow" 
+                  name="Cumulative DCF ($k)" 
+                  stroke="#7e22ce" 
+                  strokeWidth={3} 
+                  strokeDasharray="4 4"
+                  dot={{ r: 4, fill: '#7e22ce' }} 
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Chart 2: CapEx Budget Allocation Breakdown */}
+        <div className="p-5 rounded-3xl bg-white border border-purple-200 shadow-xl space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-black text-purple-950 flex items-center gap-2">
+                <Layers className="w-4 h-4 text-purple-700" />
+                Turnkey CapEx Allocation ($k)
+              </h3>
+              <p className="text-xs text-purple-600">
+                Itemized initial investment breakdown across real estate, forecourt tanks, and retail fitout
+              </p>
+            </div>
+            <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+              Total: ${(totalCapEx / 1000000).toFixed(2)}M
+            </span>
+          </div>
+
+          <div className="h-64 w-full min-h-[240px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={capexBreakdownData} margin={{ top: 10, right: 15, left: 10, bottom: 35 }}>
+                <XAxis 
+                  dataKey="name" 
+                  stroke="#7e22ce" 
+                  fontSize={10} 
+                  tickLine={false}
+                  interval={0}
+                  angle={-20}
+                  textAnchor="end"
+                  height={45}
+                />
+                <YAxis 
+                  stroke="#7e22ce" 
+                  fontSize={10} 
+                  tickLine={false}
+                  width={55}
+                  tickFormatter={(val) => `$${Number(val).toLocaleString()}k`}
+                />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: '#ffffff', borderColor: '#d8b4fe', borderRadius: '12px', fontSize: '11px', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)' }}
+                  formatter={(val: any) => [`$${Number(val).toLocaleString()}k`, 'Allocated CapEx']}
+                />
+                <Bar dataKey="cost" name="CapEx Budget ($k)" radius={[6, 6, 0, 0]}>
+                  {capexBreakdownData.map((entry, index) => (
+                    <Cell key={`capex-cell-${index}`} fill={entry.fill} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         </div>
       </div>

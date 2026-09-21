@@ -392,6 +392,99 @@ export interface LocationStrategicStory {
   keyActionItems: string[];
 }
 
+export interface IsochroneBuffer {
+  minutes: 5 | 10 | 15;
+  drivableAreaSqMiles: number;
+  concentricRadiusEquivalentMiles: number;
+  drivablePopulation: number;
+  concentricPopulation: number;
+  barrierDeficitPct: number;
+  accessibleWorkers: number;
+  arterialCoverageMiles: number;
+  polygonCoordinates: [number, number][];
+}
+
+export interface IsochroneAnalysisData {
+  fiveMin: IsochroneBuffer;
+  tenMin: IsochroneBuffer;
+  fifteenMin: IsochroneBuffer;
+  roadNetworkBarriers: { barrier: string; type: string; impact: string }[];
+  accessibilityIndex: number;
+}
+
+export interface CatchmentBrandShareItem {
+  brand: string;
+  count: number;
+  pumps: number;
+  pumpSharePct: number;
+  estAnnualVolumeMGal: number;
+  volumeSharePct: number;
+  estCStoreSalesMUsd: number;
+  cStoreSharePct: number;
+  brandPowerScore: number;
+  vulnerabilityScore: number;
+}
+
+export interface CatchmentMarketShareData {
+  brands: CatchmentBrandShareItem[];
+  herfindahlIndex: number;
+  concentrationRating: 'Highly Competitive' | 'Moderately Concentrated' | 'Highly Concentrated';
+  proposedSiteMarketSharePct: number;
+  projectedRankInCatchment: number;
+  topCompetitorBrand: string;
+  independentSharePct: number;
+}
+
+export interface HourlyFlowItem {
+  hour: string;
+  passingVehiclesAadt: number;
+  captureRatePct: number;
+  projectedVisits: number;
+  fuelOnlyVisits: number;
+  cStoreOnlyVisits: number;
+  amPeak: boolean;
+  pmPeak: boolean;
+  lunchSurge: boolean;
+}
+
+export interface CommuterFlowData {
+  hourlyFlow: HourlyFlowItem[];
+  amPeakDirectionalSplit: { inboundPct: number; outboundPct: number; morningCommutersPerHour: number };
+  pmPeakDirectionalSplit: { inboundPct: number; outboundPct: number; eveningCommutersPerHour: number };
+  weekendVsWeekdayRatio: number;
+  projectedDailyTotalVisits: number;
+  fuelOnlyVisits: number;
+  cStoreOnlyVisits: number;
+  dualFuelCStoreVisits: number;
+  evChargingVisits: number;
+  avgDwellTimeMinutes: number;
+}
+
+export interface CannibalizationDetail {
+  sisterStoreId: string;
+  sisterStoreName: string;
+  distanceMiles: number;
+  driveTimeMinutes: number;
+  currentMonthlyVolumeGal: number;
+  projectedDiversionPct: number;
+  divertedMonthlyVolumeGal: number;
+  divertedMonthlyGrossProfitUsd: number;
+  riskLevel: 'LOW' | 'MODERATE' | 'HIGH';
+}
+
+export interface CannibalizationAnalysisData {
+  nearbySisterStores: CannibalizationDetail[];
+  totalMonthlyVolumeDivertedGal: number;
+  totalAnnualProfitImpactUsd: number;
+  grossNewVolumeGal: number;
+  netIncrementalVolumeGal: number;
+  netIncrementalEbitdaUsd: number;
+  netIncrementalLiftPct: number;
+  gravityDecayExponent: number;
+  brandLoyaltyFactor: number;
+  mitigationPlaybook: string[];
+}
+
 export interface RadiusAnalysisData {
   radiusMiles: 1 | 3 | 5;
   centerLat: number;
@@ -405,6 +498,10 @@ export interface RadiusAnalysisData {
   riskMatrix?: LocationRiskFactor[];
   overallRiskLevel?: 'LOW' | 'MODERATE' | 'HIGH';
   strategicStory?: LocationStrategicStory;
+  isochrones?: IsochroneAnalysisData;
+  catchmentMarketShare?: CatchmentMarketShareData;
+  commuterFlow?: CommuterFlowData;
+  cannibalization?: CannibalizationAnalysisData;
   competitors: {
     id: string;
     name: string;

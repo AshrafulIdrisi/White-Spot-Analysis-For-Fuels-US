@@ -107,41 +107,41 @@ export const NewSiteModal: React.FC<NewSiteModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-5">
-        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center">
-              <Sparkles className="w-4 h-4" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-purple-950/60 backdrop-blur-sm animate-in fade-in">
+      <div className="bg-white border border-purple-200 rounded-3xl max-w-xl w-[calc(100vw-24px)] sm:w-full max-h-[90vh] overflow-y-auto p-4 sm:p-6 shadow-2xl space-y-5 custom-scrollbar">
+        <div className="flex items-center justify-between border-b border-purple-100 pb-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center">
+              <Sparkles className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white">Evaluate Custom Candidate Site</h3>
-              <p className="text-xs text-slate-400">Instantly score any US coordinate or address</p>
+              <h3 className="text-base font-bold text-purple-950">Evaluate Custom Candidate Site</h3>
+              <p className="text-xs text-purple-600">Instantly score any US coordinate or address</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-white">
+          <button onClick={onClose} className="p-1.5 rounded-xl text-purple-400 hover:text-purple-900 hover:bg-purple-100 transition-colors">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4 text-xs">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1">
-              <label className="text-slate-300 font-semibold">Site Name / Corridor</label>
+              <label className="text-purple-900 font-semibold">Site Name / Corridor</label>
               <input
                 type="text"
                 value={siteName}
                 onChange={(e) => setSiteName(e.target.value)}
-                className="w-full bg-slate-950 text-slate-100 p-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-cyan-500"
+                className="w-full bg-purple-50/50 text-purple-950 p-2.5 rounded-xl border border-purple-200 focus:outline-none focus:border-purple-500 font-medium"
                 required
               />
             </div>
             <div className="space-y-1">
-              <label className="text-slate-300 font-semibold">Proposed Store Format</label>
+              <label className="text-purple-900 font-semibold">Proposed Store Format</label>
               <select
                 value={storeType}
                 onChange={(e: any) => setStoreType(e.target.value)}
-                className="w-full bg-slate-950 text-slate-100 p-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-cyan-500"
+                className="w-full bg-purple-50/50 text-purple-950 p-2.5 rounded-xl border border-purple-200 focus:outline-none focus:border-purple-500 font-medium"
               >
                 <option value="Fuel Station + C-Store">Fuel Station + C-Store</option>
                 <option value="Travel Plaza / Truck Stop">Travel Plaza / Truck Stop</option>
@@ -150,77 +150,77 @@ export const NewSiteModal: React.FC<NewSiteModalProps> = ({
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="space-y-1">
-              <label className="text-slate-300 font-semibold">City</label>
+              <label className="text-purple-900 font-semibold">City</label>
               <input
                 type="text"
                 value={city}
                 onChange={(e) => setCity(e.target.value)}
-                className="w-full bg-slate-950 text-slate-100 p-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-cyan-500"
+                className="w-full bg-purple-50/50 text-purple-950 p-2.5 rounded-xl border border-purple-200 focus:outline-none focus:border-purple-500 font-medium"
               />
             </div>
             <div className="space-y-1">
-              <label className="text-slate-300 font-semibold">State</label>
+              <label className="text-purple-900 font-semibold">State</label>
               <input
                 type="text"
                 value={state}
                 onChange={(e) => setState(e.target.value)}
-                className="w-full bg-slate-950 text-slate-100 p-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-cyan-500"
+                className="w-full bg-purple-50/50 text-purple-950 p-2.5 rounded-xl border border-purple-200 focus:outline-none focus:border-purple-500 font-medium"
               />
             </div>
             <div className="space-y-1">
-              <label className="text-slate-300 font-semibold">ZIP Code</label>
+              <label className="text-purple-900 font-semibold">ZIP Code</label>
               <input
                 type="text"
                 value={zipCode}
                 onChange={(e) => setZipCode(e.target.value)}
-                className="w-full bg-slate-950 text-slate-100 p-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-cyan-500"
+                className="w-full bg-purple-50/50 text-purple-950 p-2.5 rounded-xl border border-purple-200 focus:outline-none focus:border-purple-500 font-medium"
               />
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="space-y-1">
-              <label className="text-slate-300 font-semibold">Daily Traffic (AADT)</label>
+              <label className="text-purple-900 font-semibold">Daily Traffic (AADT)</label>
               <input
                 type="number"
                 value={aadt}
                 onChange={(e) => setAadt(parseInt(e.target.value))}
-                className="w-full bg-slate-950 text-slate-100 p-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-cyan-500"
+                className="w-full bg-purple-50/50 text-purple-950 p-2.5 rounded-xl border border-purple-200 focus:outline-none focus:border-purple-500 font-medium"
               />
             </div>
             <div className="space-y-1">
-              <label className="text-slate-300 font-semibold">3-Mile Population</label>
+              <label className="text-purple-900 font-semibold">3-Mile Population</label>
               <input
                 type="number"
                 value={pop3Mile}
                 onChange={(e) => setPop3Mile(parseInt(e.target.value))}
-                className="w-full bg-slate-950 text-slate-100 p-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-cyan-500"
+                className="w-full bg-purple-50/50 text-purple-950 p-2.5 rounded-xl border border-purple-200 focus:outline-none focus:border-purple-500 font-medium"
               />
             </div>
             <div className="space-y-1">
-              <label className="text-slate-300 font-semibold">Dispenser Pumps</label>
+              <label className="text-purple-900 font-semibold">Dispenser Pumps</label>
               <input
                 type="number"
                 value={pumps}
                 onChange={(e) => setPumps(parseInt(e.target.value))}
-                className="w-full bg-slate-950 text-slate-100 p-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-cyan-500"
+                className="w-full bg-purple-50/50 text-purple-950 p-2.5 rounded-xl border border-purple-200 focus:outline-none focus:border-purple-500 font-medium"
               />
             </div>
           </div>
 
-          <div className="pt-3 flex items-center justify-end gap-3 border-t border-slate-800">
+          <div className="pt-3 flex items-center justify-end gap-3 border-t border-purple-100">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white font-semibold"
+              className="px-4 py-2 rounded-xl bg-purple-50 text-purple-800 hover:bg-purple-100 font-semibold cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-5 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-400 hover:to-teal-400 text-slate-950 font-bold flex items-center gap-1.5 shadow-lg shadow-cyan-500/25"
+              className="px-5 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold flex items-center gap-1.5 shadow-md shadow-purple-500/25 cursor-pointer"
             >
               <Sparkles className="w-4 h-4" />
               <span>Score & Add Site</span>
