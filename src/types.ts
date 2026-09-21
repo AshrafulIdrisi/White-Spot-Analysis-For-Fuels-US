@@ -349,7 +349,13 @@ export interface OsmPoiRecord {
   amenity?: string; // fuel, charging_station, etc.
   shop?: string; // convenience, kiosk, etc.
   pumpsCount?: number;
+  mpdCount?: number;
   cStoreSqFt?: number;
+  isPumpsEstimated?: boolean;
+  pumpsEstimationRationale?: string;
+  forecourtConfidence?: 'EXPLICIT_TAG' | 'HIGH_CONFIDENCE' | 'CORRIDOR_MODEL' | string;
+  forecourtConfidenceLabel?: string;
+  forecourtArchetype?: string;
   openingHours?: string;
   fuelDiesel?: boolean;
   fuelLpg?: boolean;
@@ -508,6 +514,12 @@ export interface RadiusAnalysisData {
     brand: string;
     type: string;
     pumps: number;
+    mpdCount?: number;
+    isPumpsEstimated?: boolean;
+    pumpsEstimationRationale?: string;
+    forecourtConfidence?: string;
+    forecourtConfidenceLabel?: string;
+    forecourtArchetype?: string;
     distanceMiles: number;
     lat: number;
     lng: number;

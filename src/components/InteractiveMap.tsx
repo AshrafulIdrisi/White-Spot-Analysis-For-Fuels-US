@@ -640,7 +640,13 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
             </div>
             <div style="font-size: 11px; color: #94a3b8; margin-bottom: 6px;">
               Brand: <strong style="color: #e2e8f0;">${poi.brand || brandStyle.name}</strong> • ${mpdCount} MPD Forecourt
+              ${poi.forecourtConfidenceLabel ? `<span style="margin-left: 6px; font-size: 9px; padding: 1px 5px; border-radius: 4px; background: #334155; color: #94a3b8;">${poi.forecourtConfidenceLabel}</span>` : ''}
             </div>
+            ${poi.pumpsEstimationRationale ? `
+            <div style="font-size: 9.5px; color: #cbd5e1; background: #1e293b; padding: 4px 8px; border-radius: 6px; border: 1px solid #334155; margin-bottom: 6px;">
+              ${poi.pumpsEstimationRationale}
+            </div>
+            ` : ''}
             <div style="background: #0f172a; border-radius: 8px; padding: 6px; border: 1px solid #1e293b; margin-bottom: 6px; font-size: 11px;">
               <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
                 <span style="color: #94a3b8;">Fuel Positions:</span>

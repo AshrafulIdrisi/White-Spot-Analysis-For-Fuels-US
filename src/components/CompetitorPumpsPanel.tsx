@@ -234,11 +234,27 @@ export const CompetitorPumpsPanel: React.FC<CompetitorPumpsPanelProps> = ({
                       <Fuel className="w-3 h-3 text-purple-600" />
                       {comp.pumpsCount || 8} Pumps
                     </span>
-                    <span className="text-[9px] text-slate-500 block mt-0.5">
-                      {Math.round((comp.pumpsCount || 8) / 2)} MPD Forecourt
+                    <span className="text-[9px] text-slate-500 block mt-0.5 font-medium">
+                      {comp.mpdCount || Math.round((comp.pumpsCount || 8) / 2)} MPD Dispenser{(comp.mpdCount || Math.round((comp.pumpsCount || 8) / 2)) > 1 ? 's' : ''}
                     </span>
                   </div>
                 </div>
+
+                {/* Estimation Rationale & Confidence Tag */}
+                {comp.pumpsEstimationRationale && (
+                  <div className="px-2 py-1 rounded-md bg-slate-50 border border-slate-200/80 text-[9.5px] text-slate-600 flex items-start justify-between gap-2">
+                    <span className="line-clamp-1">{comp.pumpsEstimationRationale}</span>
+                    <span className={`shrink-0 px-1 py-0.2 text-[8.5px] font-semibold rounded ${
+                      comp.forecourtConfidence === 'EXPLICIT_TAG' 
+                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' 
+                        : comp.forecourtConfidence === 'HIGH_CONFIDENCE'
+                        ? 'bg-purple-100 text-purple-800 border border-purple-300'
+                        : 'bg-amber-100 text-amber-800 border border-amber-300'
+                    }`}>
+                      {comp.forecourtConfidenceLabel || 'Model Est.'}
+                    </span>
+                  </div>
+                )}
 
                 {/* Amenities & Fuel Grades */}
                 <div className="grid grid-cols-2 gap-1.5 text-[10px] text-slate-600 pt-1 border-t border-purple-100">

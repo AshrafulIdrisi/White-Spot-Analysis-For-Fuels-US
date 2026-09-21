@@ -734,8 +734,13 @@ export const RadiusIntelligenceDrawer: React.FC<RadiusIntelligenceDrawerProps> =
                                 <div className="font-bold text-slate-100 text-xs truncate max-w-[200px]">
                                   {poi.name}
                                 </div>
-                                <div className="text-[10px] text-amber-300 font-semibold">
-                                  {poi.brand || brandStyle.name} • {mpdCount} MPD Forecourt
+                                <div className="text-[10px] text-amber-300 font-semibold flex items-center gap-1.5">
+                                  <span>{poi.brand || brandStyle.name} • {poi.mpdCount || mpdCount} MPD Forecourt</span>
+                                  {poi.forecourtConfidenceLabel && (
+                                    <span className="px-1 py-0.2 rounded bg-slate-700/80 text-[8.5px] text-slate-300 font-medium">
+                                      {poi.forecourtConfidenceLabel}
+                                    </span>
+                                  )}
                                 </div>
                               </div>
                             </div>
@@ -749,6 +754,12 @@ export const RadiusIntelligenceDrawer: React.FC<RadiusIntelligenceDrawerProps> =
                               </span>
                             </div>
                           </div>
+
+                          {poi.pumpsEstimationRationale && (
+                            <div className="px-2 py-1 rounded bg-slate-900/60 text-[9.5px] text-slate-300 border border-slate-700/40">
+                              {poi.pumpsEstimationRationale}
+                            </div>
+                          )}
 
                           <div className="flex flex-wrap items-center gap-2 text-[10px] text-slate-400 pt-1.5 border-t border-slate-700/50">
                             <span className="flex items-center text-slate-300">

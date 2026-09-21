@@ -13,6 +13,7 @@ import {
 import { SEED_OSM_POIS, haversineDistance } from '../data/osmSeedData';
 import { US_STORE_LOCATIONS } from '../data/mockDatabase';
 import { getGeoapifyNearbyFuelStations } from './geoapifyService';
+import { estimateForecourtPumps } from '../utils/pumpEstimation';
 
 const OVERPASS_ENDPOINTS = [
   'https://overpass-api.de/api/interpreter',
@@ -41,6 +42,15 @@ function getDeterministicFallbackPois(lat: number, lng: number, radiusMiles: num
   const stableLng = Math.round((lng + dLng1) * 10000) / 10000;
   const stableId = `osm-syn-${gridLat.toFixed(2)}_${gridLng.toFixed(2)}`;
 
+  const estimation = estimateForecourtPumps({
+    brand: 'Valero',
+    name: 'Valero Corner Store',
+    street: 'Corridor Arterial',
+    lat: stableLat,
+    lng: stableLng,
+    hasDiesel: true
+  });
+
   return [
     {
       id: stableId,
@@ -48,18 +58,24 @@ function getDeterministicFallbackPois(lat: number, lng: number, radiusMiles: num
       type: 'node',
       lat: stableLat,
       lng: stableLng,
-      name: 'Valero Express Mart',
+      name: 'Valero Corner Store',
       brand: 'Valero',
       operator: 'Valero Energy',
       amenity: 'fuel',
       shop: 'convenience',
-      pumpsCount: 8,
-      cStoreSqFt: 3400,
+      pumpsCount: estimation.pumpsCount,
+      mpdCount: estimation.mpdCount,
+      cStoreSqFt: estimation.cStoreSqFt,
+      isPumpsEstimated: estimation.isEstimated,
+      pumpsEstimationRationale: estimation.rationale,
+      forecourtConfidence: estimation.confidence,
+      forecourtConfidenceLabel: estimation.confidenceLabel,
+      forecourtArchetype: estimation.archetype,
       openingHours: '24/7',
       fuelDiesel: true,
       fuelOctane91: true,
       street: 'Corridor Arterial',
-      city: 'Local Area',
+      city: 'Local Trade Area',
       state: 'US',
       postcode: '00000',
       source: 'OpenStreetMap Overpass',
@@ -171,16 +187,26 @@ out center body;`;
         const tags = el.tags || {};
         const rawBrand = extractBrandOrName(tags.brand || tags['brand:en'] || tags.operator || tags.name, 'Independent Retailer');
         const rawName = extractBrandOrName(tags.name, `${rawBrand} Station`);
-        const lowerBrand = rawBrand.toLowerCase();
-        
-        let pumps = 8;
-        if (tags.capacity) pumps = parseInt(tags.capacity, 10) || 8;
-        else if (tags.pumps) pumps = parseInt(tags.pumps, 10) || 8;
-        else if (lowerBrand.includes("buc-ee")) pumps = 64;
-        else if (lowerBrand.includes('quiktrip') || lowerBrand.includes('wawa')) pumps = 16;
-        else if (lowerBrand.includes('loves') || lowerBrand.includes('pilot')) pumps = 20;
-
+        const street = tags['addr:street'] || tags['addr:housename'] || '';
         const distance = haversineDistance(lat, lng, pLat, pLng);
+
+        const hasDiesel = !!(tags['fuel:diesel'] === 'yes' || tags.diesel === 'yes' || tags['fuel:HGV'] === 'yes');
+        const hasEv = tags.amenity === 'charging_station' || tags['amenity:charging_station'] !== undefined;
+
+        // Apply institutional multi-factor forecourt estimation engine
+        const estimation = estimateForecourtPumps({
+          rawTags: tags,
+          brand: rawBrand,
+          name: rawName,
+          street,
+          city: tags['addr:city'],
+          state: tags['addr:state'],
+          lat: pLat,
+          lng: pLng,
+          hasDiesel,
+          hasEv,
+          amenity: tags.amenity || (tags.shop ? 'shop_cstore' : 'fuel')
+        });
 
         rawPois.push({
           id: `osm-${el.id}`,
@@ -193,12 +219,18 @@ out center body;`;
           operator: extractBrandOrName(tags.operator || tags.brand, rawBrand),
           amenity: tags.amenity || (tags.shop ? 'shop_cstore' : 'fuel'),
           shop: tags.shop,
-          pumpsCount: pumps,
-          cStoreSqFt: lowerBrand.includes("buc-ee") ? 55000 : lowerBrand.includes('quiktrip') ? 5800 : 3800,
+          pumpsCount: estimation.pumpsCount,
+          mpdCount: estimation.mpdCount,
+          cStoreSqFt: estimation.cStoreSqFt,
+          isPumpsEstimated: estimation.isEstimated,
+          pumpsEstimationRationale: estimation.rationale,
+          forecourtConfidence: estimation.confidence,
+          forecourtConfidenceLabel: estimation.confidenceLabel,
+          forecourtArchetype: estimation.archetype,
           openingHours: tags.opening_hours || '24/7',
-          fuelDiesel: !!(tags['fuel:diesel'] === 'yes' || tags.diesel === 'yes'),
+          fuelDiesel: hasDiesel,
           fuelOctane91: !!(tags['fuel:octane_91'] === 'yes' || tags['fuel:e85'] === 'yes'),
-          street: tags['addr:street'] || tags['addr:housename'],
+          street: street || undefined,
           city: tags['addr:city'],
           state: tags['addr:state'],
           postcode: tags['addr:postcode'],
@@ -226,11 +258,24 @@ out center body;`;
           'Fuel & Convenience'
         );
         const rawName = extractBrandOrName(feat.properties.name, `${rawBrand} Station`);
-        const lowerBrand = rawBrand.toLowerCase();
-        let pumps = 8;
-        if (lowerBrand.includes("buc-ee")) pumps = 64;
-        else if (lowerBrand.includes('quiktrip') || lowerBrand.includes('wawa')) pumps = 16;
-        else if (lowerBrand.includes('loves') || lowerBrand.includes('pilot')) pumps = 20;
+        const street = feat.properties.street || feat.properties.address_line1 || '';
+
+        const hasDiesel = true;
+        const hasEv = feat.properties.categories?.includes('amenity.charging_station') || false;
+
+        const estimation = estimateForecourtPumps({
+          brand: rawBrand,
+          name: rawName,
+          street,
+          city: feat.properties.city,
+          state: feat.properties.state,
+          lat: pLat,
+          lng: pLng,
+          hasDiesel,
+          hasEv,
+          amenity: feat.properties.categories?.includes('commercial.convenience') ? 'shop_cstore' : 'fuel',
+          categories: feat.properties.categories || []
+        });
 
         rawPois.push({
           id: `geo-${feat.properties.place_id || `${pLat.toFixed(4)}_${pLng.toFixed(4)}`}`,
@@ -243,12 +288,18 @@ out center body;`;
           operator: extractBrandOrName(feat.properties.operator, rawBrand),
           amenity: feat.properties.categories?.includes('commercial.convenience') ? 'shop_cstore' : 'fuel',
           shop: feat.properties.categories?.includes('commercial.convenience') ? 'convenience' : undefined,
-          pumpsCount: pumps,
-          cStoreSqFt: lowerBrand.includes("buc-ee") ? 55000 : 4200,
+          pumpsCount: estimation.pumpsCount,
+          mpdCount: estimation.mpdCount,
+          cStoreSqFt: estimation.cStoreSqFt,
+          isPumpsEstimated: estimation.isEstimated,
+          pumpsEstimationRationale: estimation.rationale,
+          forecourtConfidence: estimation.confidence,
+          forecourtConfidenceLabel: estimation.confidenceLabel,
+          forecourtArchetype: estimation.archetype,
           openingHours: feat.properties.opening_hours || '24/7',
           fuelDiesel: true,
           fuelOctane91: true,
-          street: feat.properties.street || feat.properties.address_line1,
+          street: street || undefined,
           city: feat.properties.city,
           state: feat.properties.state,
           postcode: feat.properties.postcode,
@@ -277,7 +328,13 @@ out center body;`;
       if (existingIndex >= 0) {
         // Merge attributes into existing consolidated station without creating an extra marker
         const existing = deduplicatedPois[existingIndex];
-        existing.pumpsCount = Math.max(existing.pumpsCount || 8, cand.pumpsCount || 8);
+        if ((cand.pumpsCount || 0) > (existing.pumpsCount || 0)) {
+          existing.pumpsCount = cand.pumpsCount;
+          existing.mpdCount = cand.mpdCount;
+          existing.pumpsEstimationRationale = cand.pumpsEstimationRationale;
+          existing.forecourtConfidence = cand.forecourtConfidence;
+          existing.forecourtConfidenceLabel = cand.forecourtConfidenceLabel;
+        }
         existing.cStoreSqFt = Math.max(existing.cStoreSqFt || 3400, cand.cStoreSqFt || 3400);
         if (!existing.street && cand.street) existing.street = cand.street;
         if (cand.fuelDiesel) existing.fuelDiesel = true;
@@ -797,6 +854,12 @@ export async function analyzeLocationRadius(
       brand: p.brand || 'Independent',
       type: p.amenity === 'charging_station' ? 'EV Charging Hub' : 'Fuel + C-Store',
       pumps: p.pumpsCount || 8,
+      mpdCount: p.mpdCount || Math.ceil((p.pumpsCount || 8) / 2),
+      isPumpsEstimated: p.isPumpsEstimated,
+      pumpsEstimationRationale: p.pumpsEstimationRationale,
+      forecourtConfidence: p.forecourtConfidence,
+      forecourtConfidenceLabel: p.forecourtConfidenceLabel,
+      forecourtArchetype: p.forecourtArchetype,
       distanceMiles: Math.round((p.distanceMiles || 0) * 100) / 100,
       lat: p.lat,
       lng: p.lng,
