@@ -178,16 +178,31 @@ export async function queryOverpassApi(qlQuery: string, timeoutMs: number = 9000
 }
 
 function extractBrandOrName(val: any, fallback: string = ''): string {
-  if (!val) return fallback;
-  if (typeof val === 'string') return val.trim();
+  if (val === null || val === undefined) return fallback;
+  if (typeof val === 'string') {
+    const trimmed = val.trim();
+    return trimmed.length > 0 ? trimmed : fallback;
+  }
+  if (typeof val === 'number') return String(val);
   if (typeof val === 'object') {
-    if (typeof val.name === 'string') return val.name.trim();
-    if (typeof val.brand === 'string') return val.brand.trim();
-    if (typeof val.title === 'string') return val.title.trim();
-    if (typeof val.operator === 'string') return val.operator.trim();
+    if (typeof val.name === 'string' && val.name.trim()) return val.name.trim();
+    if (typeof val.en === 'string' && val.en.trim()) return val.en.trim();
+    if (typeof val.brand === 'string' && val.brand.trim()) return val.brand.trim();
+    if (typeof val.title === 'string' && val.title.trim()) return val.title.trim();
+    if (typeof val.operator === 'string' && val.operator.trim()) return val.operator.trim();
+    if (typeof val.display_name === 'string' && val.display_name.trim()) return val.display_name.trim();
+    if (typeof val.formatted === 'string' && val.formatted.trim()) return val.formatted.trim();
+    if (typeof val.text === 'string' && val.text.trim()) return val.text.trim();
+    // In case object has values that are strings
+    try {
+      const firstStrVal = Object.values(val).find(v => typeof v === 'string' && (v as string).trim().length > 0);
+      if (firstStrVal && typeof firstStrVal === 'string') return firstStrVal.trim();
+    } catch {
+      // ignore
+    }
     return fallback;
   }
-  return String(val).trim();
+  return String(val).trim() || fallback;
 }
 
 /**
@@ -264,16 +279,21 @@ out center body;`;
         if (!pLat || !pLng) return;
 
         const tags = el.tags || {};
+        const osmBrandRaw = extractBrandOrName(tags.brand || tags['brand:en'] || tags.operator || tags.name, '');
+        const osmBrandLower = osmBrandRaw.toLowerCase();
         const isEvCharging = tags.amenity === 'charging_station' || 
           tags['amenity:charging_station'] !== undefined || 
           tags['fuel:electricity'] === 'yes' ||
           tags['charging_station'] === 'yes' ||
-          (tags.brand && (tags.brand.toLowerCase().includes('tesla') || tags.brand.toLowerCase().includes('electrify america') || tags.brand.toLowerCase().includes('evgo') || tags.brand.toLowerCase().includes('chargepoint')));
+          osmBrandLower.includes('tesla') || 
+          osmBrandLower.includes('electrify america') || 
+          osmBrandLower.includes('evgo') || 
+          osmBrandLower.includes('chargepoint');
 
         const defaultBrand = isEvCharging ? 'EV Fast Charging Network' : 'Independent Retailer';
-        const rawBrand = extractBrandOrName(tags.brand || tags['brand:en'] || tags.operator || tags.name, defaultBrand);
+        const rawBrand = osmBrandRaw || defaultBrand;
         const rawName = extractBrandOrName(tags.name, isEvCharging ? `${rawBrand} Supercharger Plaza` : `${rawBrand} Station`);
-        const street = tags['addr:street'] || tags['addr:housename'] || '';
+        const street = extractBrandOrName(tags['addr:street'] || tags['addr:housename'], '');
         const distance = haversineDistance(lat, lng, pLat, pLng);
 
         const hasDiesel = !!(tags['fuel:diesel'] === 'yes' || tags.diesel === 'yes' || tags['fuel:HGV'] === 'yes');
@@ -325,8 +345,8 @@ out center body;`;
           brand: rawBrand,
           name: rawName,
           street,
-          city: tags['addr:city'],
-          state: tags['addr:state'],
+          city: extractBrandOrName(tags['addr:city'], ''),
+          state: extractBrandOrName(tags['addr:state'], ''),
           lat: pLat,
           lng: pLng,
           hasDiesel,
@@ -357,9 +377,9 @@ out center body;`;
           fuelDiesel: hasDiesel,
           fuelOctane91: !!(tags['fuel:octane_91'] === 'yes' || tags['fuel:e85'] === 'yes'),
           street: street || undefined,
-          city: tags['addr:city'],
-          state: tags['addr:state'],
-          postcode: tags['addr:postcode'],
+          city: extractBrandOrName(tags['addr:city'], undefined),
+          state: extractBrandOrName(tags['addr:state'], undefined),
+          postcode: extractBrandOrName(tags['addr:postcode'], undefined),
           source: 'OpenStreetMap Overpass',
           distanceMiles: distance,
           hasEvChargers: isEvCharging,
@@ -372,34 +392,46 @@ out center body;`;
     }
 
     // 2. Process Geoapify features if available
-    if (geoapifyFeatures && geoapifyFeatures.length > 0) {
+    if (geoapifyFeatures && Array.isArray(geoapifyFeatures) && geoapifyFeatures.length > 0) {
       geoapifyFeatures.forEach(feat => {
-        const pLat = feat.properties?.lat;
-        const pLng = feat.properties?.lon;
-        if (!pLat || !pLng) return;
+        if (!feat || !feat.properties) return;
+        const pLat = feat.properties.lat || feat.geometry?.coordinates?.[1];
+        const pLng = feat.properties.lon || feat.geometry?.coordinates?.[0];
+        if (!pLat || !pLng || isNaN(pLat) || isNaN(pLng)) return;
 
         const dist = haversineDistance(lat, lng, pLat, pLng);
-        if (dist > radiusMiles * 1.2) return;
+        if (dist > radiusMiles * 1.25) return;
 
-        const isGeoapifyEv = feat.properties.categories?.some((c: string) => 
-          c.includes('charging_station') || c.includes('vehicle.charging') || c.includes('electric_vehicle')
-        ) || (feat.properties.name && (
-          feat.properties.name.toLowerCase().includes('supercharger') ||
-          feat.properties.name.toLowerCase().includes('electrify america') ||
-          feat.properties.name.toLowerCase().includes('evgo') ||
-          feat.properties.name.toLowerCase().includes('chargepoint')
-        )) || (feat.properties.brand && feat.properties.brand.toLowerCase().includes('tesla'));
-
-        const defaultBrand = isGeoapifyEv ? 'EV Fast Charging Hub' : 'Fuel & Convenience';
+        const rawName = extractBrandOrName(feat.properties.name, '');
         const rawBrand = extractBrandOrName(
           feat.properties.brand_details?.name || 
           feat.properties.brand || 
           feat.properties.operator || 
-          feat.properties.name, 
-          defaultBrand
+          rawName, 
+          'Fuel & Convenience'
         );
-        const rawName = extractBrandOrName(feat.properties.name, isGeoapifyEv ? `${rawBrand} Fast Charging Hub` : `${rawBrand} Station`);
-        const street = feat.properties.street || feat.properties.address_line1 || '';
+        const nameLower = rawName.toLowerCase();
+        const brandLower = rawBrand.toLowerCase();
+
+        const categories = Array.isArray(feat.properties.categories) ? feat.properties.categories : [];
+        const hasEvCategory = categories.some((c: any) => 
+          typeof c === 'string' && (c.includes('charging_station') || c.includes('vehicle.charging') || c.includes('electric_vehicle'))
+        );
+
+        const isGeoapifyEv = hasEvCategory || 
+          nameLower.includes('supercharger') ||
+          nameLower.includes('electrify america') ||
+          nameLower.includes('evgo') ||
+          nameLower.includes('chargepoint') ||
+          brandLower.includes('tesla') ||
+          brandLower.includes('supercharger') ||
+          brandLower.includes('electrify america') ||
+          brandLower.includes('evgo') ||
+          brandLower.includes('chargepoint');
+
+        const effectiveBrand = isGeoapifyEv && rawBrand === 'Fuel & Convenience' ? 'EV Fast Charging Hub' : rawBrand;
+        const effectiveName = rawName || (isGeoapifyEv ? `${effectiveBrand} Fast Charging Hub` : `${effectiveBrand} Station`);
+        const street = extractBrandOrName(feat.properties.street || feat.properties.address_line1, '');
 
         const hasDiesel = !isGeoapifyEv;
 
@@ -410,25 +442,27 @@ out center body;`;
 
         if (isGeoapifyEv) {
           evPortCount = 8;
-          evPowerKw = rawBrand.toLowerCase().includes('tesla') ? 250 : 350;
-          evConnectors = rawBrand.toLowerCase().includes('tesla') 
+          evPowerKw = effectiveBrand.toLowerCase().includes('tesla') ? 250 : 350;
+          evConnectors = effectiveBrand.toLowerCase().includes('tesla') 
             ? ['NACS / Tesla (250kW+)', 'CCS Magic Dock'] 
             : ['CCS Combined (350kW)', 'CHAdeMO (50kW)'];
-          evNetwork = rawBrand;
+          evNetwork = effectiveBrand;
         }
 
+        const isCStore = categories.some((c: any) => typeof c === 'string' && (c.includes('commercial.convenience') || c.includes('convenience')));
+
         const estimation = estimateForecourtPumps({
-          brand: rawBrand,
-          name: rawName,
+          brand: effectiveBrand,
+          name: effectiveName,
           street,
-          city: feat.properties.city,
-          state: feat.properties.state,
+          city: extractBrandOrName(feat.properties.city, ''),
+          state: extractBrandOrName(feat.properties.state, ''),
           lat: pLat,
           lng: pLng,
           hasDiesel,
           hasEv: isGeoapifyEv,
-          amenity: isGeoapifyEv ? 'charging_station' : feat.properties.categories?.includes('commercial.convenience') ? 'shop_cstore' : 'fuel',
-          categories: feat.properties.categories || []
+          amenity: isGeoapifyEv ? 'charging_station' : isCStore ? 'shop_cstore' : 'fuel',
+          categories
         });
 
         rawPois.push({
@@ -437,11 +471,11 @@ out center body;`;
           type: 'node',
           lat: pLat,
           lng: pLng,
-          name: rawName,
-          brand: rawBrand,
-          operator: extractBrandOrName(feat.properties.operator, rawBrand),
-          amenity: isGeoapifyEv ? 'charging_station' : feat.properties.categories?.includes('commercial.convenience') ? 'shop_cstore' : 'fuel',
-          shop: feat.properties.categories?.includes('commercial.convenience') ? 'convenience' : undefined,
+          name: effectiveName,
+          brand: effectiveBrand,
+          operator: extractBrandOrName(feat.properties.operator, effectiveBrand),
+          amenity: isGeoapifyEv ? 'charging_station' : isCStore ? 'shop_cstore' : 'fuel',
+          shop: isCStore ? 'convenience' : undefined,
           pumpsCount: isGeoapifyEv ? 0 : estimation.pumpsCount,
           mpdCount: isGeoapifyEv ? 0 : estimation.mpdCount,
           cStoreSqFt: estimation.cStoreSqFt,
@@ -450,13 +484,13 @@ out center body;`;
           forecourtConfidence: estimation.confidence,
           forecourtConfidenceLabel: estimation.confidenceLabel,
           forecourtArchetype: isGeoapifyEv ? 'DC Fast Charging Plaza' : estimation.archetype,
-          openingHours: feat.properties.opening_hours || '24/7',
+          openingHours: extractBrandOrName(feat.properties.opening_hours, '24/7'),
           fuelDiesel: hasDiesel,
           fuelOctane91: !isGeoapifyEv,
           street: street || undefined,
-          city: feat.properties.city,
-          state: feat.properties.state,
-          postcode: feat.properties.postcode,
+          city: extractBrandOrName(feat.properties.city, undefined),
+          state: extractBrandOrName(feat.properties.state, undefined),
+          postcode: extractBrandOrName(feat.properties.postcode, undefined),
           source: 'Geoapify Places API',
           distanceMiles: dist,
           hasEvChargers: isGeoapifyEv,
@@ -495,7 +529,7 @@ out center body;`;
         const d = haversineDistance(p.lat, p.lng, cand.lat, cand.lng);
         // Overlap if within 120m with same type, or within 250m with identical brand
         if (d < 0.08 && p.amenity === cand.amenity) return true;
-        if (d < 0.16 && p.brand && cand.brand && p.brand.toLowerCase() === cand.brand.toLowerCase()) return true;
+        if (d < 0.16 && p.brand && cand.brand && String(p.brand).toLowerCase() === String(cand.brand).toLowerCase()) return true;
         return false;
       });
 

@@ -382,7 +382,8 @@ export function estimateForecourtPumps(params: {
   }
 
   // 2. Identify Brand Profile
-  const combinedText = `${brand} ${name}`.trim();
+  const safeStr = (v: any): string => (typeof v === 'string' ? v : typeof v === 'object' && v && typeof v.name === 'string' ? v.name : String(v || ''));
+  const combinedText = `${safeStr(brand)} ${safeStr(name)}`.trim();
   let matchedProfile: BrandProfile = DEFAULT_INDEPENDENT_PROFILE;
   for (const item of BRAND_PROFILES) {
     if (item.pattern.test(combinedText)) {
@@ -392,7 +393,7 @@ export function estimateForecourtPumps(params: {
   }
 
   // 3. Road Corridor & Hierarchy Modifiers
-  const addressText = `${street} ${name} ${rawTags['addr:street'] || ''}`.toLowerCase();
+  const addressText = `${safeStr(street)} ${safeStr(name)} ${safeStr(rawTags['addr:street'])}`.toLowerCase();
   let highwayBoostPumps = 0;
   let roadModifierRationale = '';
 
