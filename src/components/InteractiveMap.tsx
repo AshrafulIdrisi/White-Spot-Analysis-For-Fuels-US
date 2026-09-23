@@ -347,7 +347,7 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
       const { lat, lng } = e.latlng;
       const cLat = Math.round(lat * 10000) / 10000;
       const cLng = Math.round(lng * 10000) / 10000;
-      const label = `Pinned Site [${cLat.toFixed(3)}, ${cLng.toFixed(3)}]`;
+      const label = `${cLat.toFixed(4)}, ${cLng.toFixed(4)}`;
       
       onSelectWhiteSpot(null);
       onSelectLocation(null);
@@ -376,7 +376,7 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
   useEffect(() => {
     if (!targetCoord || !leafletMapRef.current) return;
     const { lat, lng } = targetCoord;
-    const label = targetCoord.displayName || targetCoord.address || `Location [${lat.toFixed(4)}, ${lng.toFixed(4)}]`;
+    const label = targetCoord.displayName || targetCoord.address || `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
     
     leafletMapRef.current.flyTo([lat, lng], 13, { duration: 1.2 });
     leafletMapRef.current.invalidateSize();
@@ -585,39 +585,47 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
       }
     }
 
-    // 2. Render Competitors strictly for the active clicked point within the selected radius
+    // 2. Render Competitors & EV charging stations strictly for the active clicked point within the selected radius
     if (layers.osmPoisLive && activeCenter && activeCatchmentCompetitors.length > 0) {
       activeCatchmentCompetitors.forEach(poi => {
-        const isFuel = poi.amenity === 'fuel' || (poi.pumpsCount && poi.pumpsCount > 0);
-        const isCStore = poi.shop === 'convenience';
-        const isEv = poi.amenity === 'charging_station';
+        const isEv = poi.amenity === 'charging_station' || !!poi.hasEvChargers;
+        const isFuel = (poi.amenity === 'fuel' || (poi.pumpsCount && poi.pumpsCount > 0)) && !poi.id?.startsWith('ev-auto-');
+        const isCStore = poi.shop === 'convenience' && !isFuel;
 
         const brandStyle = getCompetitorBrandStyle(poi.brand, poi.name);
-        const pumpCount = poi.pumpsCount || 8;
+        const pumpCount = poi.pumpsCount || 0;
         const mpdCount = Math.round(pumpCount / 2);
+        const evPorts = poi.evPortCount || 8;
+        const evKw = poi.evPowerKw || 250;
 
         let badgeBg = brandStyle.badgeBg;
         let borderColor = brandStyle.borderColor;
         let emoji = brandStyle.icon;
+        let pillText = `${pumpCount}P`;
+        let subtitleText = `${brandStyle.name} • ${mpdCount} MPD`;
 
         if (isEv && !isFuel) {
           badgeBg = 'bg-cyan-600 text-white';
           borderColor = 'border-cyan-300';
           emoji = '⚡';
+          pillText = `${evPorts} EV`;
+          subtitleText = `${poi.brand || poi.evNetwork || 'EV Hub'} • ${evKw}kW`;
         } else if (isCStore && !isFuel) {
           badgeBg = 'bg-emerald-600 text-white';
           borderColor = 'border-emerald-300';
           emoji = '🏪';
+          pillText = 'C-Store';
+          subtitleText = `${brandStyle.name} • Retail`;
         }
 
         const osmHtml = `
           <div class="relative flex flex-col items-center justify-center cursor-pointer group">
             <div class="flex items-center gap-1 px-1.5 py-0.5 rounded-lg ${badgeBg} border ${borderColor} shadow-md group-hover:scale-110 transition-transform">
               <span class="text-[10px]">${emoji}</span>
-              <span class="text-[9px] font-black text-slate-900 bg-white/90 px-1 rounded shadow-sm">${pumpCount}P</span>
+              <span class="text-[9px] font-black ${isEv && !isFuel ? 'text-cyan-950 bg-cyan-100' : 'text-slate-900 bg-white/90'} px-1 rounded shadow-sm">${pillText}</span>
             </div>
-            <div class="mt-0.5 whitespace-nowrap px-1.5 py-0.2 rounded bg-slate-950/95 border border-slate-700/80 text-[8px] font-bold text-amber-300 pointer-events-none shadow">
-              ${brandStyle.name} • ${mpdCount} MPD
+            <div class="mt-0.5 whitespace-nowrap px-1.5 py-0.2 rounded bg-slate-950/95 border border-slate-700/80 text-[8px] font-bold ${isEv && !isFuel ? 'text-cyan-300' : 'text-amber-300'} pointer-events-none shadow">
+              ${subtitleText}
             </div>
           </div>
         `;
@@ -625,12 +633,45 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
         const osmIcon = L.divIcon({
           html: osmHtml,
           className: 'custom-osm-competitor-icon',
-          iconSize: [60, 36],
-          iconAnchor: [30, 18]
+          iconSize: [64, 38],
+          iconAnchor: [32, 19]
         });
 
         const marker = L.marker([poi.lat, poi.lng], { icon: osmIcon });
-        marker.bindPopup(`
+
+        const popupContent = isEv && !isFuel ? `
+          <div style="font-family: system-ui, -apple-system, sans-serif; min-width: 230px; padding: 6px; color: #f8fafc;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+              <span style="font-weight: 800; color: #38bdf8; font-size: 13px;">⚡ ${poi.name}</span>
+              <span style="background: #082f49; color: #38bdf8; border: 1px solid #0284c7; font-size: 10px; font-weight: bold; padding: 2px 6px; border-radius: 6px;">
+                ${evPorts} DCFC STALLS
+              </span>
+            </div>
+            <div style="font-size: 11px; color: #94a3b8; margin-bottom: 6px;">
+              Network: <strong style="color: #e2e8f0;">${poi.evNetwork || poi.brand || 'EV Fast Network'}</strong> • ${evKw}kW Max Power
+            </div>
+            <div style="background: #0f172a; border-radius: 8px; padding: 6px; border: 1px solid #1e293b; margin-bottom: 6px; font-size: 11px;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
+                <span style="color: #94a3b8;">Charging Speed:</span>
+                <strong style="color: #38bdf8;">${evKw}kW Ultra-Fast DCFC</strong>
+              </div>
+              <div style="display: flex; justify-content: space-between; margin-bottom: 3px;">
+                <span style="color: #94a3b8;">Connectors:</span>
+                <strong style="color: #10b981;">${(poi.evConnectors || ['NACS / Tesla', 'CCS Combo']).join(', ')}</strong>
+              </div>
+              <div style="display: flex; justify-content: space-between;">
+                <span style="color: #94a3b8;">Forecourt Archetype:</span>
+                <span style="color: #e2e8f0;">DC Fast Charging Plaza</span>
+              </div>
+            </div>
+            <div style="font-size: 10px; color: #64748b; margin-bottom: 8px;">
+              📍 ${poi.address || poi.street || 'Alternative Fuel Corridor Node'}
+            </div>
+            <div style="font-size: 9px; color: #0284c7; font-weight: 600; text-align: center; margin-bottom: 4px;">
+              Data Source: ${poi.source || 'OpenStreetMap & Alternative Fuel Feeds'}
+            </div>
+          </div>
+        ` : `
           <div style="font-family: system-ui, -apple-system, sans-serif; min-width: 220px; padding: 6px; color: #f8fafc;">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
               <span style="font-weight: 800; color: #fbbf24; font-size: 13px;">${brandStyle.icon} ${poi.name}</span>
@@ -665,10 +706,12 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
               📍 ${poi.address || poi.street || 'Corridor Trade Area'}
             </div>
             <div style="font-size: 9px; color: #059669; font-weight: 600; text-align: center; margin-bottom: 4px;">
-              Data Source: OpenStreetMap Overpass (Real-Time • Free)
+              Data Source: ${poi.source || 'OpenStreetMap Overpass'}
             </div>
           </div>
-        `);
+        `;
+
+        marker.bindPopup(popupContent);
 
         marker.on('click', (e: any) => {
           L.DomEvent.stopPropagation(e);

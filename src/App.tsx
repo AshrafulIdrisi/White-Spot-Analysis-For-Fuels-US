@@ -9,6 +9,7 @@ import { CompetitorIntelligence } from './components/CompetitorIntelligence';
 import { MarketShareModule } from './components/MarketShareModule';
 import { FootfallIntelligence } from './components/FootfallIntelligence';
 import { CatchmentAnalysis } from './components/CatchmentAnalysis';
+import { LocationDiagnostics } from './components/LocationDiagnostics';
 import { FinancialFeasibility } from './components/FinancialFeasibility';
 import { AIRecommendationModule } from './components/AIRecommendationModule';
 import { DataETLModule } from './components/DataETLModule';
@@ -19,6 +20,7 @@ import { NewSiteModal } from './components/NewSiteModal';
 import { SavedVaultModule } from './components/SavedVaultModule';
 import { InvestmentMatrixModule } from './components/InvestmentMatrixModule';
 import { CannibalizationSimulatorModule } from './components/CannibalizationSimulatorModule';
+import { KpiGlossaryModal } from './components/KpiGlossaryModal';
 import { 
   StoreLocationRecord, 
   WhiteSpotCandidate, 
@@ -54,6 +56,15 @@ export default function App() {
   // Modal State for New Site Evaluation
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalInitialCoords, setModalInitialCoords] = useState<{ lat?: number; lng?: number; address?: string }>({});
+
+  // Modal State for KPI Methodology & Underwriting Glossary
+  const [isGlossaryOpen, setIsGlossaryOpen] = useState(false);
+  const [glossaryKpiId, setGlossaryKpiId] = useState<string | undefined>(undefined);
+
+  const handleOpenGlossary = (kpiId?: string) => {
+    setGlossaryKpiId(kpiId);
+    setIsGlossaryOpen(true);
+  };
 
   useEffect(() => {
     const handleToggle = () => setIsMobileDrawerOpen(prev => !prev);
@@ -178,6 +189,7 @@ export default function App() {
         locationCount={locations.length}
         isMobileOpen={isMobileDrawerOpen}
         onCloseMobile={() => setIsMobileDrawerOpen(false)}
+        onOpenGlossary={handleOpenGlossary}
       />
 
       {/* Main Content Area */}
@@ -195,6 +207,7 @@ export default function App() {
           }}
           onNewSiteClick={() => setIsModalOpen(true)}
           onToggleMobileMenu={() => setIsMobileDrawerOpen(prev => !prev)}
+          onOpenGlossary={handleOpenGlossary}
         />
 
         <main className="flex-1 overflow-y-auto bg-[#faf8ff] custom-scrollbar pb-16 lg:pb-0">
@@ -203,6 +216,7 @@ export default function App() {
               locations={locations}
               whiteSpots={whiteSpots}
               onNavigateToMap={() => setActiveTab('map')}
+              onNavigateToDiagnostics={() => setActiveTab('diagnostics')}
               onSelectWhiteSpot={(candidate) => {
                 setSelectedWhiteSpot(candidate);
                 setTargetMapCoord({
@@ -255,6 +269,10 @@ export default function App() {
               }}
               onOpenAIRecommendation={handleOpenAIRecommendation}
               onExportData={handleExportData}
+              onNavigateToDiagnostics={(c) => {
+                if (c) setSelectedWhiteSpot(c);
+                setActiveTab('diagnostics');
+              }}
             />
           )}
 
@@ -411,6 +429,7 @@ export default function App() {
                 setActiveTab('map');
               }}
               onOpenAIRecommendation={handleOpenAIRecommendation}
+              onOpenGlossary={handleOpenGlossary}
             />
           )}
 
@@ -431,6 +450,39 @@ export default function App() {
                 setActiveTab('map');
               }}
               onOpenAIRecommendation={handleOpenAIRecommendation}
+            />
+          )}
+
+          {activeTab === 'diagnostics' && (
+            <LocationDiagnostics
+              candidates={whiteSpots}
+              locations={locations}
+              selectedCandidate={selectedWhiteSpot}
+              onSelectCandidate={(c) => {
+                setSelectedWhiteSpot(c);
+                setTargetMapCoord({
+                  lat: c.lat,
+                  lng: c.lng,
+                  displayName: c.candidateName,
+                  address: c.address
+                });
+              }}
+              onNavigateToMap={(c) => {
+                if (c) {
+                  setSelectedWhiteSpot(c);
+                  setTargetMapCoord({
+                    lat: c.lat,
+                    lng: c.lng,
+                    displayName: c.candidateName,
+                    address: c.address
+                  });
+                }
+                setActiveTab('map');
+              }}
+              onNavigateToCatchment={(c) => {
+                if (c) setSelectedWhiteSpot(c);
+                setActiveTab('catchment');
+              }}
             />
           )}
 
@@ -459,6 +511,10 @@ export default function App() {
                   });
                 }
                 setActiveTab('map');
+              }}
+              onNavigateToDiagnostics={(c) => {
+                if (c) setSelectedWhiteSpot(c);
+                setActiveTab('diagnostics');
               }}
             />
           )}
@@ -509,6 +565,13 @@ export default function App() {
         initialLat={modalInitialCoords.lat}
         initialLng={modalInitialCoords.lng}
         initialAddress={modalInitialCoords.address}
+      />
+
+      {/* KPI Methodology & Underwriting Glossary Overlay */}
+      <KpiGlossaryModal
+        isOpen={isGlossaryOpen}
+        onClose={() => setIsGlossaryOpen(false)}
+        initialSelectedKpiId={glossaryKpiId}
       />
     </div>
   );

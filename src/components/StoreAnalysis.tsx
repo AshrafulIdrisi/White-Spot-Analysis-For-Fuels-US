@@ -207,8 +207,8 @@ export const StoreAnalysis: React.FC<StoreAnalysisProps> = ({
             <div className="flex items-center gap-2">
               <MapPin className="w-4 h-4 text-purple-700 flex-shrink-0" />
               <span className="font-bold text-purple-950 truncate">{activeCandidate.address || activeCandidate.candidateName}</span>
-              <span className="text-purple-600 font-mono text-[11px]">
-                [{activeCandidate.lat.toFixed(4)}, {activeCandidate.lng.toFixed(4)}]
+              <span className="px-2 py-0.5 rounded-md bg-purple-100 text-purple-700 text-[10px] font-bold uppercase tracking-wider">
+                {activeCandidate.city}, {activeCandidate.state}
               </span>
             </div>
             <div className="flex items-center gap-3 text-[11px]">

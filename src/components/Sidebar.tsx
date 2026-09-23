@@ -20,7 +20,9 @@ import {
   Database,
   X,
   Menu,
-  MoreHorizontal
+  MoreHorizontal,
+  BookOpen,
+  Compass
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -32,6 +34,7 @@ interface SidebarProps {
   collapsed?: boolean;
   isMobileOpen?: boolean;
   onCloseMobile?: () => void;
+  onOpenGlossary?: (kpiId?: string) => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ 
@@ -41,7 +44,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   whiteSpotCount = 12,
   locationCount = 15,
   isMobileOpen = false,
-  onCloseMobile
+  onCloseMobile,
+  onOpenGlossary
 }) => {
   const handleTabChange = (id: string) => {
     if (onSelectTab) onSelectTab(id);
@@ -62,6 +66,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     {
       title: 'SPATIAL & TRADE AREA DEEP DIVE',
       items: [
+        { id: 'diagnostics', label: 'Location Spatial Diagnostics', icon: Compass, badge: 'Pure Spatial' },
         { id: 'catchment', label: '1/3/5-Mile Catchment & Risk', icon: CircleDot, badge: 'Multi-Ring' },
         { id: 'cannibalization', label: 'Cannibalization Simulator', icon: ShieldCheck, badge: 'Huff Model' },
         { id: 'store', label: 'Forecourt & Pumps Analyzer', icon: Fuel },
@@ -139,9 +144,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <aside className="hidden lg:flex w-64 bg-white border-r border-purple-100 flex-col flex-shrink-0 min-h-screen select-none shadow-sm">
         {sidebarContent}
 
-        {/* Footer system status badge */}
-        <div className="p-3 border-t border-purple-100 bg-purple-50/40">
-          <div className="flex items-center justify-between p-2.5 rounded-xl bg-white border border-purple-100 shadow-sm">
+        {/* Footer system status badge & KPI Glossary button */}
+        <div className="p-3 border-t border-purple-100 bg-purple-50/40 space-y-2">
+          <button
+            onClick={() => {
+              if (onOpenGlossary) onOpenGlossary();
+            }}
+            className="w-full flex items-center justify-between p-2.5 rounded-xl bg-purple-100/70 hover:bg-purple-200/80 border border-purple-200 text-purple-950 transition-all cursor-pointer group shadow-2xs"
+          >
+            <div className="flex items-center gap-2">
+              <BookOpen className="w-4 h-4 text-purple-700 group-hover:scale-110 transition-transform" />
+              <div className="text-left">
+                <div className="text-xs font-bold text-purple-950">KPI Glossary &amp; Docs</div>
+                <div className="text-[10px] text-purple-700">Math &amp; Underwriting Rules</div>
+              </div>
+            </div>
+            <span className="text-[10px] font-bold text-purple-700 bg-white px-1.5 py-0.5 rounded border border-purple-200">
+              Docs
+            </span>
+          </button>
+
+          <div className="flex items-center justify-between p-2 rounded-xl bg-white border border-purple-100 shadow-2xs">
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
               <div className="text-[11px] font-semibold text-purple-950">OSM Live Overpass</div>
@@ -187,7 +210,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {sidebarContent}
 
             {/* Drawer Footer */}
-            <div className="p-3 border-t border-purple-100 bg-purple-50/50">
+            <div className="p-3 border-t border-purple-100 bg-purple-50/50 space-y-2">
+              <button
+                onClick={() => {
+                  if (onCloseMobile) onCloseMobile();
+                  if (onOpenGlossary) onOpenGlossary();
+                }}
+                className="w-full flex items-center justify-between p-2.5 rounded-xl bg-purple-100/70 hover:bg-purple-200/80 border border-purple-200 text-purple-950 transition-all cursor-pointer shadow-2xs"
+              >
+                <div className="flex items-center gap-2">
+                  <BookOpen className="w-4 h-4 text-purple-700" />
+                  <div className="text-left">
+                    <div className="text-xs font-bold text-purple-950">KPI Glossary &amp; Docs</div>
+                    <div className="text-[10px] text-purple-700">Math &amp; Underwriting Rules</div>
+                  </div>
+                </div>
+                <span className="text-[10px] font-bold text-purple-700 bg-white px-1.5 py-0.5 rounded border border-purple-200">
+                  Docs
+                </span>
+              </button>
+
               <div className="flex items-center justify-between p-2 rounded-xl bg-white border border-purple-100 text-xs">
                 <div className="flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   X, 
   Target, 
@@ -58,12 +58,25 @@ export const RadiusIntelligenceDrawer: React.FC<RadiusIntelligenceDrawerProps> =
   const [activeTab, setActiveTab] = useState<'overview' | 'scores' | 'isochrone' | 'marketshare' | 'footfall' | 'cannibalization' | 'risk' | 'story' | 'competitors' | 'multiring'>('overview');
   const [isSaved, setIsSaved] = useState(false);
 
+  // Helper to format clean display address: real place name or Lat/Long coordinates
+  const cleanDisplayAddress = useMemo(() => {
+    if (!data) return '';
+    if (data.centerAddress && !data.centerAddress.toLowerCase().includes('pinned') && !data.centerAddress.toLowerCase().includes('geopoint')) {
+      const cleaned = data.centerAddress.replace(/\[[0-9.,\s-]+\]/g, '').trim();
+      if (cleaned.length > 0) return cleaned;
+    }
+    if (typeof data.centerLat === 'number' && typeof data.centerLng === 'number') {
+      return `${data.centerLat.toFixed(4)}, ${data.centerLng.toFixed(4)}`;
+    }
+    return '';
+  }, [data?.centerAddress, data?.centerLat, data?.centerLng]);
+
   if (!data && !isLoading) return null;
 
   const filteredPois = data?.osmPois.filter(p => {
-    if (poiFilter === 'fuel') return p.amenity === 'fuel' || (p.pumpsCount && p.pumpsCount > 0);
+    if (poiFilter === 'fuel') return (p.amenity === 'fuel' || (p.pumpsCount && p.pumpsCount > 0)) && !p.id?.startsWith('ev-auto-');
     if (poiFilter === 'cstore') return p.shop === 'convenience' || (p.cStoreSqFt && p.cStoreSqFt > 0);
-    if (poiFilter === 'ev') return p.amenity === 'charging_station' || p.brand?.toLowerCase().includes('tesla');
+    if (poiFilter === 'ev') return p.amenity === 'charging_station' || !!p.hasEvChargers || p.brand?.toLowerCase().includes('tesla') || p.brand?.toLowerCase().includes('electrify') || p.brand?.toLowerCase().includes('evgo') || p.brand?.toLowerCase().includes('chargepoint');
     return true;
   }) || [];
 
@@ -87,8 +100,8 @@ export const RadiusIntelligenceDrawer: React.FC<RadiusIntelligenceDrawerProps> =
   // Convert current radius data into candidate object for AI recommendation
   const asCandidate: WhiteSpotCandidate | null = data ? {
     id: `custom-rad-${Date.now()}`,
-    candidateName: `${data.centerAddress || 'Pinned Site'} (${data.radiusMiles}-Mile Analysis)`,
-    address: data.centerAddress || `Geopoint [${data.centerLat}, ${data.centerLng}]`,
+    candidateName: `${cleanDisplayAddress} (${data.radiusMiles}-Mile Analysis)`,
+    address: cleanDisplayAddress,
     city: 'Analyzed Catchment',
     state: 'US',
     county: 'Custom Buffer',
@@ -179,7 +192,7 @@ export const RadiusIntelligenceDrawer: React.FC<RadiusIntelligenceDrawerProps> =
               </span>
             </div>
             <h3 className="text-sm font-bold text-purple-950 truncate max-w-[320px]">
-              {data?.centerAddress || 'Location Analysis Point'}
+              {cleanDisplayAddress}
             </h3>
           </div>
         </div>
@@ -716,9 +729,13 @@ export const RadiusIntelligenceDrawer: React.FC<RadiusIntelligenceDrawerProps> =
                 ) : (
                   <div className="space-y-2.5">
                     {filteredPois.map((poi, idx) => {
+                      const isEv = poi.amenity === 'charging_station' || !!poi.hasEvChargers;
+                      const isFuel = (poi.amenity === 'fuel' || (poi.pumpsCount && poi.pumpsCount > 0)) && !poi.id?.startsWith('ev-auto-');
                       const brandStyle = getCompetitorBrandStyle(poi.brand, poi.name);
-                      const pumpCount = poi.pumpsCount || 8;
+                      const pumpCount = poi.pumpsCount || 0;
                       const mpdCount = Math.round(pumpCount / 2);
+                      const evPorts = poi.evPortCount || 8;
+                      const evKw = poi.evPowerKw || 250;
 
                       return (
                         <div
@@ -727,15 +744,19 @@ export const RadiusIntelligenceDrawer: React.FC<RadiusIntelligenceDrawerProps> =
                         >
                           <div className="flex items-start justify-between gap-2">
                             <div className="flex items-center space-x-2.5">
-                              <div className={`w-7 h-7 rounded-lg ${brandStyle.badgeBg} border ${brandStyle.borderColor} flex items-center justify-center text-xs shadow shrink-0`}>
-                                {brandStyle.icon}
+                              <div className={`w-7 h-7 rounded-lg ${isEv && !isFuel ? 'bg-cyan-600 text-white border-cyan-400' : `${brandStyle.badgeBg} border ${brandStyle.borderColor}`} flex items-center justify-center text-xs shadow shrink-0`}>
+                                {isEv && !isFuel ? '⚡' : brandStyle.icon}
                               </div>
                               <div>
                                 <div className="font-bold text-slate-100 text-xs truncate max-w-[200px]">
                                   {poi.name}
                                 </div>
-                                <div className="text-[10px] text-amber-300 font-semibold flex items-center gap-1.5">
-                                  <span>{poi.brand || brandStyle.name} • {poi.mpdCount || mpdCount} MPD Forecourt</span>
+                                <div className={`text-[10px] ${isEv && !isFuel ? 'text-cyan-300' : 'text-amber-300'} font-semibold flex items-center gap-1.5`}>
+                                  {isEv && !isFuel ? (
+                                    <span>{poi.evNetwork || poi.brand || 'EV Fast Network'} • {evKw}kW DCFC</span>
+                                  ) : (
+                                    <span>{poi.brand || brandStyle.name} • {poi.mpdCount || mpdCount} MPD Forecourt</span>
+                                  )}
                                   {poi.forecourtConfidenceLabel && (
                                     <span className="px-1 py-0.2 rounded bg-slate-700/80 text-[8.5px] text-slate-300 font-medium">
                                       {poi.forecourtConfidenceLabel}
@@ -745,10 +766,17 @@ export const RadiusIntelligenceDrawer: React.FC<RadiusIntelligenceDrawerProps> =
                               </div>
                             </div>
                             <div className="text-right shrink-0">
-                              <span className="px-2 py-0.5 rounded-lg bg-amber-950/80 border border-amber-500/50 text-amber-300 text-[11px] font-black inline-flex items-center gap-1">
-                                <Fuel className="w-3 h-3 text-amber-400" />
-                                {pumpCount} Pumps
-                              </span>
+                              {isEv && !isFuel ? (
+                                <span className="px-2 py-0.5 rounded-lg bg-cyan-950/80 border border-cyan-500/50 text-cyan-300 text-[11px] font-black inline-flex items-center gap-1">
+                                  <Zap className="w-3 h-3 text-cyan-400" />
+                                  {evPorts} EV Stalls
+                                </span>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded-lg bg-amber-950/80 border border-amber-500/50 text-amber-300 text-[11px] font-black inline-flex items-center gap-1">
+                                  <Fuel className="w-3 h-3 text-amber-400" />
+                                  {pumpCount} Pumps
+                                </span>
+                              )}
                               <span className="text-[10px] text-slate-400 block mt-0.5 font-medium">
                                 {poi.distanceMiles} mi away
                               </span>
@@ -762,18 +790,31 @@ export const RadiusIntelligenceDrawer: React.FC<RadiusIntelligenceDrawerProps> =
                           )}
 
                           <div className="flex flex-wrap items-center gap-2 text-[10px] text-slate-400 pt-1.5 border-t border-slate-700/50">
-                            <span className="flex items-center text-slate-300">
-                              <Store className="w-3 h-3 mr-1 text-emerald-400" />
-                              {(poi.cStoreSqFt || 3800).toLocaleString()} sq ft C-Store
-                            </span>
-                            {poi.fuelDiesel && (
-                              <span className="px-1.5 py-0.2 bg-emerald-950/60 text-emerald-400 border border-emerald-800/50 rounded font-semibold">
-                                Ultra-Low Diesel
-                              </span>
+                            {isEv && !isFuel ? (
+                              <>
+                                <span className="px-1.5 py-0.2 bg-cyan-950/60 text-cyan-300 border border-cyan-800/50 rounded font-semibold">
+                                  {(poi.evConnectors || ['NACS / Tesla', 'CCS Combo']).join(', ')}
+                                </span>
+                                <span className="px-1.5 py-0.2 bg-slate-900 text-slate-300 border border-slate-700 rounded">
+                                  {evKw}kW Max Output
+                                </span>
+                              </>
+                            ) : (
+                              <>
+                                <span className="flex items-center text-slate-300">
+                                  <Store className="w-3 h-3 mr-1 text-emerald-400" />
+                                  {(poi.cStoreSqFt || 3800).toLocaleString()} sq ft C-Store
+                                </span>
+                                {poi.fuelDiesel && (
+                                  <span className="px-1.5 py-0.2 bg-emerald-950/60 text-emerald-400 border border-emerald-800/50 rounded font-semibold">
+                                    Ultra-Low Diesel
+                                  </span>
+                                )}
+                                <span className="px-1.5 py-0.2 bg-blue-950/60 text-blue-300 border border-blue-800/50 rounded font-semibold">
+                                  Synergy 93
+                                </span>
+                              </>
                             )}
-                            <span className="px-1.5 py-0.2 bg-blue-950/60 text-blue-300 border border-blue-800/50 rounded font-semibold">
-                              Synergy 93
-                            </span>
                             {poi.osmId && (
                               <a
                                 href={`https://www.openstreetmap.org/${poi.type || 'node'}/${poi.osmId}`}

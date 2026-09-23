@@ -1,5 +1,5 @@
-import { OsmPoiRecord, RadiusAnalysisData, WhiteSpotCandidate } from '../types';
-import { haversineDistance } from '../data/osmSeedData';
+import type { OsmPoiRecord, RadiusAnalysisData, WhiteSpotCandidate } from '../types.ts';
+import { haversineDistance } from '../data/osmSeedData.ts';
 
 // Public reliable Overpass API mirrors
 const OVERPASS_ENDPOINTS = [

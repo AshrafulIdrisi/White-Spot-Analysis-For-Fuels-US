@@ -21,7 +21,8 @@ import {
   CheckCircle2, 
   AlertTriangle,
   Search,
-  Filter
+  Filter,
+  BookOpen
 } from 'lucide-react';
 import { 
   ResponsiveContainer, 
@@ -55,6 +56,7 @@ interface MarketShareModuleProps {
   onSelectWhiteSpot?: (ws: WhiteSpotCandidate) => void;
   onNavigateToMap?: (ws: WhiteSpotCandidate) => void;
   onOpenAIRecommendation?: (ws: WhiteSpotCandidate) => void;
+  onOpenGlossary?: (kpiId?: string) => void;
 }
 
 const BRAND_COLORS: Record<string, string> = {
@@ -78,7 +80,8 @@ export const MarketShareModule: React.FC<MarketShareModuleProps> = ({
   selectedWhiteSpot,
   onSelectWhiteSpot,
   onNavigateToMap,
-  onOpenAIRecommendation
+  onOpenAIRecommendation,
+  onOpenGlossary
 }) => {
   const [viewMode, setViewMode] = useState<'catchment' | 'macro'>('catchment');
   const [selectedSiteId, setSelectedSiteId] = useState<string>(
@@ -301,6 +304,28 @@ export const MarketShareModule: React.FC<MarketShareModuleProps> = ({
     w.state.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Accurate dynamic trade area totals and proposed expansion metrics
+  const proposedPumpsCount = liveRadiusData?.economics.recommendedPumps || activeCandidate?.recommendedPumps || 16;
+  const existingTradeAreaPumps = (liveCatchmentData?.brands || []).reduce((sum, b) => sum + b.pumps, 0) || (liveRadiusData?.totalPumps || 0);
+  const totalCombinedPumps = existingTradeAreaPumps + proposedPumpsCount;
+  const accurateProposedPumpSharePct = totalCombinedPumps > 0 
+    ? Math.round((proposedPumpsCount / totalCombinedPumps) * 1000) / 10 
+    : 100;
+
+  // Accurate Projected Annual Fuel Volume (Gal)
+  const accurateProposedFuelGal = activeCandidate?.projectedAnnualFuelGallons 
+    || (liveRadiusData?.economics.unmetDemandGallons && liveRadiusData.economics.unmetDemandGallons > 0 ? liveRadiusData.economics.unmetDemandGallons : null)
+    || (proposedPumpsCount * 225000);
+
+  // Accurate Projected Annual C-Store / Inside Sales ($)
+  const accurateProposedInsideSalesUsd = activeCandidate?.projectedAnnualCStoreRevenue 
+    || (liveRadiusData?.economics.unmetCStoreSalesUsd && liveRadiusData.economics.unmetCStoreSalesUsd > 0 ? liveRadiusData.economics.unmetCStoreSalesUsd : null)
+    || (activeCandidate?.recommendedCStoreSqFt ? activeCandidate.recommendedCStoreSqFt * 650 : null)
+    || (proposedPumpsCount * 175000);
+
+  const existingTradeAreaVolMGal = (liveCatchmentData?.brands || []).reduce((s, b) => s + b.estAnnualVolumeMGal, 0);
+  const totalTradeAreaVolWithProposedMGal = existingTradeAreaVolMGal + (accurateProposedFuelGal / 1000000);
+
   return (
     <div className="p-4 lg:p-8 space-y-6 max-w-7xl mx-auto">
       {/* Top Main Navigation Banner */}
@@ -418,6 +443,16 @@ export const MarketShareModule: React.FC<MarketShareModuleProps> = ({
                   <RefreshCw className={`w-3.5 h-3.5 ${isLoadingLive ? 'animate-spin text-purple-400' : ''}`} />
                   <span className="hidden sm:inline">{isLoadingLive ? 'Analyzing...' : 'Fetch Live OSM'}</span>
                 </button>
+
+                {/* KPI Glossary & Documentation Trigger */}
+                <button
+                  onClick={() => onOpenGlossary && onOpenGlossary('catchment-rank')}
+                  className="px-3 py-2 rounded-xl bg-purple-950/60 hover:bg-purple-900/80 text-purple-200 border border-purple-800 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  title="View complete mathematical definitions & strategic usage for all KPIs"
+                >
+                  <BookOpen className="w-3.5 h-3.5 text-purple-400" />
+                  <span className="hidden sm:inline">KPI Docs</span>
+                </button>
               </div>
 
               {/* Action Buttons */}
@@ -519,10 +554,17 @@ export const MarketShareModule: React.FC<MarketShareModuleProps> = ({
           {/* Live KPI Metric Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
             {/* HHI Concentration */}
-            <div className="p-4 rounded-xl bg-slate-900/90 border border-slate-800 space-y-1 shadow">
+            <div 
+              onClick={() => onOpenGlossary && onOpenGlossary('herfindahl-index')}
+              className="p-4 rounded-xl bg-slate-900/90 border border-slate-800 space-y-1 shadow hover:border-purple-600/70 hover:bg-slate-900 transition-all cursor-pointer group"
+              title="Click to view Herfindahl-Hirschman Index methodology & calculation"
+            >
               <div className="flex items-center justify-between">
-                <span className="text-[11px] text-slate-400 font-medium">HHI Market Concentration</span>
-                <ShieldCheck className="w-4 h-4 text-purple-400" />
+                <span className="text-[11px] text-slate-400 font-medium group-hover:text-purple-300 transition-colors">HHI Concentration</span>
+                <div className="flex items-center gap-1">
+                  <HelpCircle className="w-3 h-3 text-slate-600 group-hover:text-purple-400" />
+                  <ShieldCheck className="w-4 h-4 text-purple-400" />
+                </div>
               </div>
               <div className="text-2xl font-black text-amber-400">
                 {liveCatchmentData?.herfindahlIndex || 1840}
@@ -533,10 +575,17 @@ export const MarketShareModule: React.FC<MarketShareModuleProps> = ({
             </div>
 
             {/* Total Competitors & Pumps */}
-            <div className="p-4 rounded-xl bg-slate-900/90 border border-slate-800 space-y-1 shadow">
+            <div 
+              onClick={() => onOpenGlossary && onOpenGlossary('unmet-fuel-demand')}
+              className="p-4 rounded-xl bg-slate-900/90 border border-slate-800 space-y-1 shadow hover:border-cyan-600/70 hover:bg-slate-900 transition-all cursor-pointer group"
+              title="Click to view Forecourt Supply Deficit & Capacity methodology"
+            >
               <div className="flex items-center justify-between">
-                <span className="text-[11px] text-slate-400 font-medium">Catchment Fuel Stations</span>
-                <Fuel className="w-4 h-4 text-cyan-400" />
+                <span className="text-[11px] text-slate-400 font-medium group-hover:text-cyan-300 transition-colors">Catchment Fuel Stations</span>
+                <div className="flex items-center gap-1">
+                  <HelpCircle className="w-3 h-3 text-slate-600 group-hover:text-cyan-400" />
+                  <Fuel className="w-4 h-4 text-cyan-400" />
+                </div>
               </div>
               <div className="text-2xl font-black text-white">
                 {liveRadiusData?.totalCompetitors || liveCatchmentData?.brands.reduce((s, b) => s + b.count, 0) || 4}{' '}
@@ -552,25 +601,41 @@ export const MarketShareModule: React.FC<MarketShareModuleProps> = ({
             </div>
 
             {/* Proposed Market Share Rank */}
-            <div className="p-4 rounded-xl bg-slate-900/90 border border-slate-800 space-y-1 shadow">
+            <div 
+              onClick={() => onOpenGlossary && onOpenGlossary('catchment-rank')}
+              className="p-4 rounded-xl bg-slate-900/90 border border-slate-800 space-y-1 shadow hover:border-emerald-600/70 hover:bg-slate-900 transition-all cursor-pointer group"
+              title="Click to view Projected Catchment Rank calculation & strategic usage"
+            >
               <div className="flex items-center justify-between">
-                <span className="text-[11px] text-slate-400 font-medium">Projected Catchment Rank</span>
-                <Target className="w-4 h-4 text-emerald-400" />
+                <span className="text-[11px] text-slate-400 font-medium group-hover:text-emerald-300 transition-colors">Projected Catchment Rank</span>
+                <div className="flex items-center gap-1">
+                  <HelpCircle className="w-3 h-3 text-slate-600 group-hover:text-emerald-400" />
+                  <Target className="w-4 h-4 text-emerald-400" />
+                </div>
               </div>
               <div className="text-2xl font-black text-emerald-400">
-                #{liveCatchmentData?.projectedRankInCatchment || 1}{' '}
-                <span className="text-xs font-bold text-slate-300">Market Leader</span>
+                #{accurateProposedPumpSharePct > ((liveCatchmentData?.brands?.[0]?.pumpSharePct) || 0) ? 1 : 2}{' '}
+                <span className="text-xs font-bold text-slate-300">
+                  {accurateProposedPumpSharePct > ((liveCatchmentData?.brands?.[0]?.pumpSharePct) || 0) ? 'Market Leader' : 'Top Contender'}
+                </span>
               </div>
               <div className="text-[11px] text-emerald-300">
-                {liveCatchmentData?.proposedSiteMarketSharePct || 28.4}% Forecast Volume Capture
+                {accurateProposedPumpSharePct}% Forecast Volume Capture
               </div>
             </div>
 
             {/* Independent / Vulnerable Share */}
-            <div className="p-4 rounded-xl bg-slate-900/90 border border-slate-800 space-y-1 shadow">
+            <div 
+              onClick={() => onOpenGlossary && onOpenGlossary('vulnerability-score')}
+              className="p-4 rounded-xl bg-slate-900/90 border border-slate-800 space-y-1 shadow hover:border-rose-600/70 hover:bg-slate-900 transition-all cursor-pointer group"
+              title="Click to view Vulnerability Score & Share Steal formula"
+            >
               <div className="flex items-center justify-between">
-                <span className="text-[11px] text-slate-400 font-medium">Vulnerable / Indep. Share</span>
-                <Swords className="w-4 h-4 text-rose-400" />
+                <span className="text-[11px] text-slate-400 font-medium group-hover:text-rose-300 transition-colors">Vulnerable / Indep. Share</span>
+                <div className="flex items-center gap-1">
+                  <HelpCircle className="w-3 h-3 text-slate-600 group-hover:text-rose-400" />
+                  <Swords className="w-4 h-4 text-rose-400" />
+                </div>
               </div>
               <div className="text-2xl font-black text-rose-400">
                 {liveCatchmentData?.independentSharePct || 32.5}%
@@ -711,7 +776,7 @@ export const MarketShareModule: React.FC<MarketShareModuleProps> = ({
               </div>
 
               <div className="text-xs font-semibold text-purple-300 bg-purple-950/80 px-3 py-1.5 rounded-xl border border-purple-800">
-                Total Trade Area Volume: ~{((liveCatchmentData?.brands || []).reduce((s, b) => s + b.estAnnualVolumeMGal, 0) || 5.2).toFixed(1)}M Gal/yr
+                Total Trade Area Volume: ~{totalTradeAreaVolWithProposedMGal.toFixed(1)}M Gal/yr
               </div>
             </div>
 
@@ -739,16 +804,16 @@ export const MarketShareModule: React.FC<MarketShareModuleProps> = ({
                     </td>
                     <td className="py-3 px-3 text-slate-200">1 (Planned)</td>
                     <td className="py-3 px-3 text-purple-300">
-                      {liveRadiusData?.economics.recommendedPumps || 16} Pumps
+                      {proposedPumpsCount} Pumps
                     </td>
                     <td className="py-3 px-3 text-emerald-400">
-                      {liveCatchmentData?.proposedSiteMarketSharePct || 28.4}%
+                      {accurateProposedPumpSharePct}%
                     </td>
                     <td className="py-3 px-3 text-emerald-300">
-                      ~{((liveRadiusData?.economics.unmetDemandGallons || 2200000) / 1000000).toFixed(2)}M Gal
+                      ~{(accurateProposedFuelGal / 1000000).toFixed(2)}M Gal
                     </td>
                     <td className="py-3 px-3 text-teal-300">
-                      ~${((liveRadiusData?.economics.unmetCStoreSalesUsd || 1800000) / 1000000).toFixed(2)}M
+                      ~${(accurateProposedInsideSalesUsd / 1000000).toFixed(2)}M
                     </td>
                     <td className="py-3 px-3 text-purple-300">95/100 (Tier-1)</td>
                     <td className="py-3 px-3 text-emerald-400">Low (0%)</td>

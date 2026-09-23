@@ -11,7 +11,8 @@ import {
   Fuel,
   Plus,
   Menu,
-  X
+  X,
+  BookOpen
 } from 'lucide-react';
 import { geocodeSearch, GeocodedLocation } from '../services/realDataService';
 
@@ -27,6 +28,7 @@ interface HeaderProps {
   onSelectCoordinate?: (coord: { lat: number; lng: number; displayName?: string; address?: string }) => void;
   onSelectGeocodedLocation?: (loc: { lat: number; lng: number; displayName: string }) => void;
   onToggleMobileMenu?: () => void;
+  onOpenGlossary?: (kpiId?: string) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -40,7 +42,8 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenNewAnalysisModal,
   onSelectCoordinate,
   onSelectGeocodedLocation,
-  onToggleMobileMenu
+  onToggleMobileMenu,
+  onOpenGlossary
 }) => {
   const [internalQuery, setInternalQuery] = useState<string>('');
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState<boolean>(false);
@@ -270,6 +273,17 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <Map className={`w-3.5 h-3.5 ${activeTab === 'map' ? 'text-white' : 'text-purple-600'}`} />
             <span className="hidden md:inline">1-Click</span> <span>Map</span>
+          </button>
+
+          <button
+            onClick={() => {
+              if (onOpenGlossary) onOpenGlossary();
+            }}
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl border border-purple-200 bg-purple-50/70 hover:bg-purple-100/80 text-purple-900 text-xs font-semibold transition-all cursor-pointer min-h-[38px]"
+            title="Open KPI Methodology & Underwriting Glossary"
+          >
+            <BookOpen className="w-3.5 h-3.5 text-purple-600" />
+            <span className="hidden md:inline">Glossary</span> <span className="hidden lg:inline">&amp; Docs</span>
           </button>
 
           <button

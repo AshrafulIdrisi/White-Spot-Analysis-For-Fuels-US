@@ -1,4 +1,4 @@
-import { OsmPoiRecord, RadiusAnalysisData } from '../types';
+import type { OsmPoiRecord, RadiusAnalysisData } from '../types.ts';
 
 // Robust baseline of real OpenStreetMap POIs across US high-growth corridors
 export const SEED_OSM_POIS: OsmPoiRecord[] = [

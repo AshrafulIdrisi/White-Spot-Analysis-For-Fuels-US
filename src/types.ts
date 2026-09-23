@@ -366,6 +366,11 @@ export interface OsmPoiRecord {
   postcode?: string;
   source: 'OpenStreetMap Overpass' | 'Geoapify Places API' | string;
   distanceMiles?: number;
+  hasEvChargers?: boolean;
+  evPortCount?: number;
+  evPowerKw?: number;
+  evConnectors?: string[];
+  evNetwork?: string;
 }
 
 export interface LocationRiskFactor {

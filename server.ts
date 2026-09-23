@@ -1,5 +1,6 @@
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
 import { GoogleGenAI } from '@google/genai';
 import { 
   US_STORE_LOCATIONS, 
@@ -9,8 +10,8 @@ import {
   RECENT_ETL_JOBS, 
   SYSTEM_DATA_QUALITY,
   DEFAULT_SCORING_WEIGHTS 
-} from './src/data/mockDatabase';
-import { 
+} from './src/data/mockDatabase.ts';
+import type { 
   FinancialScenarioConfig, 
   FinancialScenarioResult, 
   ScoringWeights, 
@@ -20,19 +21,19 @@ import {
   ETLJobRecord,
   OsmPoiRecord,
   RadiusAnalysisData
-} from './src/types';
+} from './src/types.ts';
 import { 
   fetchLiveOsmPois, 
   analyzeLocationRadius, 
   scanOsmRegionalWhiteSpots 
-} from './src/services/osmService';
+} from './src/services/osmService.ts';
 import {
   geocodeSearch,
   reverseGeocode,
   queryLiveOverpassPois,
   getLiveEiaFuelPrices,
   getRealCensusDemographics
-} from './src/services/realDataService';
+} from './src/services/realDataService.ts';
 
 // Initialize Gemini SDK with User-Agent header as required
 let aiClient: GoogleGenAI | null = null;
@@ -165,7 +166,7 @@ function computeFinancialScenarios(config: FinancialScenarioConfig): {
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
   app.use(express.json({ limit: '20mb' }));
   app.use(express.urlencoded({ extended: true, limit: '20mb' }));
@@ -1090,7 +1091,10 @@ Provide a rigorous, institutional-grade business evaluation in JSON matching thi
   // ==========================================
   // VITE / STATIC FILE SERVING
   // ==========================================
-  if (process.env.NODE_ENV !== 'production') {
+  const distPath = path.join(process.cwd(), 'dist');
+  const hasDist = fs.existsSync(distPath) && fs.existsSync(path.join(distPath, 'index.html'));
+
+  if (process.env.NODE_ENV !== 'production' && !hasDist) {
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
@@ -1098,16 +1102,62 @@ Provide a rigorous, institutional-grade business evaluation in JSON matching thi
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
+      if (req.path.startsWith('/api')) {
+        return res.status(404).json({ success: false, error: 'API endpoint not found' });
+      }
+      const indexPath = path.join(distPath, 'index.html');
+      if (fs.existsSync(indexPath)) {
+        res.sendFile(indexPath);
+      } else {
+        res.status(200).send('<!doctype html><html><head><meta charset="utf-8"><title>WhiteSpot Intelligence</title></head><body><div id="root">Loading application...</div></body></html>');
+      }
     });
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
+  // Global Express Error Handler
+  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    console.error('Express Error Handler caught:', err);
+    if (res.headersSent) {
+      return next(err);
+    }
+    res.status(500).json({
+      success: false,
+      error: err?.message || 'Internal Server Error'
+    });
+  });
+
+  const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`WhiteSpot Intelligence Server running on http://0.0.0.0:${PORT}`);
   });
+
+  // Graceful shutdown for container environments (Cloud Run SIGTERM / SIGINT)
+  const shutdown = () => {
+    console.log('Received kill signal, shutting down gracefully...');
+    server.close(() => {
+      console.log('Closed out remaining connections');
+      process.exit(0);
+    });
+    setTimeout(() => {
+      console.error('Could not close connections in time, forcefully shutting down');
+      process.exit(1);
+    }, 10000);
+  };
+
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', shutdown);
 }
 
-startServer();
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+startServer().catch(err => {
+  console.error('Failed to start server:', err);
+  process.exit(1);
+});

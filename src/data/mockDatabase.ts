@@ -1,4 +1,4 @@
-import { 
+import type { 
   StoreLocationRecord, 
   WhiteSpotCandidate, 
   MarketShareRecord, 
@@ -7,7 +7,7 @@ import {
   ETLJobRecord, 
   DataQualitySummary,
   ScoringWeights 
-} from '../types';
+} from '../types.ts';
 
 export const DEFAULT_SCORING_WEIGHTS: ScoringWeights = {
   demandPotential: 25,

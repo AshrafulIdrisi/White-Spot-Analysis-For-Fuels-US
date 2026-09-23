@@ -27,6 +27,9 @@ import {
   ResponsiveContainer, 
   ScatterChart, 
   Scatter, 
+  BarChart,
+  Bar,
+  Legend,
   XAxis, 
   YAxis, 
   ZAxis, 
@@ -48,6 +51,7 @@ interface WhiteSpotExplorerProps {
   onClearAllWhiteSpots?: () => void;
   onScanAndPopulateWhiteSpots?: (candidates: WhiteSpotCandidate[]) => void;
   onNavigateToMap?: () => void;
+  onNavigateToDiagnostics?: (candidate: WhiteSpotCandidate) => void;
 }
 
 export const WhiteSpotExplorer: React.FC<WhiteSpotExplorerProps> = ({
@@ -60,7 +64,8 @@ export const WhiteSpotExplorer: React.FC<WhiteSpotExplorerProps> = ({
   onLaunchStoreBuilder,
   onClearAllWhiteSpots,
   onScanAndPopulateWhiteSpots,
-  onNavigateToMap
+  onNavigateToMap,
+  onNavigateToDiagnostics
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRisk, setSelectedRisk] = useState<string>('ALL');
@@ -190,6 +195,43 @@ export const WhiteSpotExplorer: React.FC<WhiteSpotExplorerProps> = ({
     }
     return true;
   });
+
+  // Chart view mode state
+  const [chartViewMode, setChartViewMode] = useState<'pipeline_traffic' | 'matrix'>('pipeline_traffic');
+
+  // Helper to format chart tick labels cleanly with real place/corridor names or lat/long
+  const formatChartLabel = (ws: WhiteSpotCandidate) => {
+    if (ws.candidateName && !ws.candidateName.toLowerCase().startsWith('pinned') && !ws.candidateName.toLowerCase().startsWith('custom')) {
+      const cleanName = ws.candidateName.replace(/\(.*?\)/g, '').replace(/\[.*?\]/g, '').trim();
+      if (cleanName.includes(',')) {
+        return cleanName.split(',')[0].trim();
+      }
+      const parts = cleanName.split(' ');
+      if (parts.length <= 3) return cleanName;
+      return parts.slice(0, 2).join(' ');
+    }
+    if (ws.city && ws.state && ws.city !== 'Analyzed Corridor' && ws.city !== 'Analyzed Catchment' && ws.city !== 'Corridor' && ws.city !== 'Custom') {
+      return `${ws.city}, ${ws.state}`;
+    }
+    if (ws.address && !ws.address.toLowerCase().startsWith('pinned') && !ws.address.toLowerCase().startsWith('custom') && !ws.address.includes('Trade Node')) {
+      const cleanAddr = ws.address.replace(/\(.*?\)/g, '').replace(/\[.*?\]/g, '').trim();
+      if (cleanAddr.length > 0) return cleanAddr.split(',')[0].trim();
+    }
+    if (typeof ws.lat === 'number' && typeof ws.lng === 'number') {
+      return `${ws.lat.toFixed(3)}, ${ws.lng.toFixed(3)}`;
+    }
+    return ws.city || 'Site';
+  };
+
+  // Bar chart data for Pipeline Opportunity Index vs Traffic Volume
+  const pipelineTrafficChartData = filteredCandidates.slice(0, 6).map(c => ({
+    name: formatChartLabel(c),
+    fullName: c.candidateName || `${c.lat?.toFixed(4)}, ${c.lng?.toFixed(4)}`,
+    score: c.opportunityScore || 0,
+    traffic: Math.round((c.aadt || 30000) / 1000),
+    cityState: c.city && c.state && c.city !== 'Analyzed Corridor' ? `${c.city}, ${c.state}` : `${c.lat?.toFixed(4)}, ${c.lng?.toFixed(4)}`,
+    candidate: c
+  }));
 
   // Scatter data for Demand vs Supply Matrix
   const scatterData = filteredCandidates.map(c => ({
@@ -707,54 +749,120 @@ export const WhiteSpotExplorer: React.FC<WhiteSpotExplorerProps> = ({
 
           {/* Right Col: Active Candidate Deep-Dive & Demand vs Supply Scatter */}
           <div className="space-y-6">
-            {/* Demand vs Supply Void Matrix Plot */}
+            {/* Pipeline Visual Analytics Plot (Opportunity vs Traffic & Matrix) */}
             <div className="bg-white border border-purple-200 rounded-3xl p-5 space-y-3 shadow-sm">
-              <h3 className="text-sm font-bold text-purple-950 flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-purple-600" />
-                Demand vs Supply Gap Matrix
-              </h3>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 text-purple-600" />
+                  <h3 className="text-sm font-bold text-purple-950">
+                    {chartViewMode === 'pipeline_traffic' ? 'Pipeline Opportunity Index vs Traffic Volume' : 'Demand vs Supply Gap Matrix'}
+                  </h3>
+                </div>
+                
+                {/* Chart Toggle */}
+                <div className="flex items-center bg-purple-50 p-0.5 rounded-lg border border-purple-200 text-[10px] font-bold">
+                  <button
+                    onClick={() => setChartViewMode('pipeline_traffic')}
+                    className={`px-2 py-1 rounded-md transition-all cursor-pointer ${
+                      chartViewMode === 'pipeline_traffic'
+                        ? 'bg-purple-600 text-white shadow-xs'
+                        : 'text-purple-700 hover:text-purple-900'
+                    }`}
+                  >
+                    Index vs Traffic
+                  </button>
+                  <button
+                    onClick={() => setChartViewMode('matrix')}
+                    className={`px-2 py-1 rounded-md transition-all cursor-pointer ${
+                      chartViewMode === 'matrix'
+                        ? 'bg-purple-600 text-white shadow-xs'
+                        : 'text-purple-700 hover:text-purple-900'
+                    }`}
+                  >
+                    Gap Matrix
+                  </button>
+                </div>
+              </div>
+
               <p className="text-xs text-purple-600">
-                Upper-right quadrant represents prime tier-1 expansion targets.
+                {chartViewMode === 'pipeline_traffic' 
+                  ? 'Composite Opportunity Index (0–100) vs Daily Corridor Traffic (k AADT) across top pipeline candidates.'
+                  : 'Upper-right quadrant represents prime tier-1 expansion targets.'}
               </p>
 
-              <div className="h-48 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <ScatterChart margin={{ top: 10, right: 15, bottom: 20, left: 10 }}>
-                    <XAxis 
-                      type="number" 
-                      dataKey="x" 
-                      name="Demand Score" 
-                      domain={[60, 100]} 
-                      stroke="#7e22ce" 
-                      fontSize={10} 
-                      tickLine={false}
-                      tickFormatter={(val) => `${val}`}
-                      label={{ value: 'Demand Score →', position: 'insideBottom', offset: -10, fontSize: 10, fill: '#7e22ce', fontWeight: 600 }}
-                    />
-                    <YAxis 
-                      type="number" 
-                      dataKey="y" 
-                      name="Supply Gap" 
-                      domain={[60, 100]} 
-                      stroke="#7e22ce" 
-                      fontSize={10} 
-                      tickLine={false}
-                      width={35}
-                      tickFormatter={(val) => `${val}`}
-                    />
-                    <ZAxis type="number" dataKey="z" range={[60, 200]} />
-                    <Tooltip 
-                      cursor={{ strokeDasharray: '3 3' }}
-                      contentStyle={{ backgroundColor: '#ffffff', borderColor: '#e9d5ff', borderRadius: '12px', fontSize: '11px', color: '#3b0764' }}
-                      formatter={(val, name, item: any) => [`Score: ${item.payload.score} (Demand: ${item.payload.x}, Supply Gap: ${item.payload.y})`, item.payload.cityState]}
-                    />
-                    <Scatter data={scatterData} fill="#9333ea">
-                      {scatterData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.score >= 90 ? '#7c3aed' : '#10b981'} />
-                      ))}
-                    </Scatter>
-                  </ScatterChart>
-                </ResponsiveContainer>
+              <div className="h-52 w-full">
+                {chartViewMode === 'pipeline_traffic' ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={pipelineTrafficChartData} margin={{ top: 10, right: 10, bottom: 25, left: 0 }}>
+                      <XAxis 
+                        dataKey="name" 
+                        stroke="#7e22ce" 
+                        fontSize={9} 
+                        tickLine={false} 
+                        interval={0}
+                        angle={-18}
+                        textAnchor="end"
+                        height={35}
+                      />
+                      <YAxis 
+                        stroke="#7e22ce" 
+                        fontSize={9} 
+                        tickLine={false} 
+                        domain={[0, 100]}
+                        width={30}
+                        tickFormatter={(val) => `${val}`}
+                      />
+                      <Tooltip 
+                        contentStyle={{ backgroundColor: '#ffffff', borderColor: '#d8b4fe', borderRadius: '12px', fontSize: '11px', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)' }}
+                        formatter={(val: any, name: any, item: any) => [
+                          name === 'Pipeline Opportunity Index' ? `${val} / 100` : `${val}k vehicles/day`,
+                          item?.payload?.cityState ? `${name} (${item.payload.cityState})` : name
+                        ]}
+                      />
+                      <Legend wrapperStyle={{ fontSize: '10px', paddingTop: '2px' }} />
+                      <Bar dataKey="score" name="Pipeline Opportunity Index" fill="#7e22ce" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="traffic" name="Traffic Volume (k AADT)" fill="#10b981" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ScatterChart margin={{ top: 10, right: 15, bottom: 20, left: 10 }}>
+                      <XAxis 
+                        type="number" 
+                        dataKey="x" 
+                        name="Demand Score" 
+                        domain={[60, 100]} 
+                        stroke="#7e22ce" 
+                        fontSize={10} 
+                        tickLine={false}
+                        tickFormatter={(val) => `${val}`}
+                        label={{ value: 'Demand Score →', position: 'insideBottom', offset: -10, fontSize: 10, fill: '#7e22ce', fontWeight: 600 }}
+                      />
+                      <YAxis 
+                        type="number" 
+                        dataKey="y" 
+                        name="Supply Gap" 
+                        domain={[60, 100]} 
+                        stroke="#7e22ce" 
+                        fontSize={10} 
+                        tickLine={false}
+                        width={35}
+                        tickFormatter={(val) => `${val}`}
+                      />
+                      <ZAxis type="number" dataKey="z" range={[60, 200]} />
+                      <Tooltip 
+                        cursor={{ strokeDasharray: '3 3' }}
+                        contentStyle={{ backgroundColor: '#ffffff', borderColor: '#e9d5ff', borderRadius: '12px', fontSize: '11px', color: '#3b0764' }}
+                        formatter={(val, name, item: any) => [`Score: ${item.payload.score} (Demand: ${item.payload.x}, Supply Gap: ${item.payload.y})`, item.payload.cityState]}
+                      />
+                      <Scatter data={scatterData} fill="#9333ea">
+                        {scatterData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.score >= 90 ? '#7c3aed' : '#10b981'} />
+                        ))}
+                      </Scatter>
+                    </ScatterChart>
+                  </ResponsiveContainer>
+                )}
               </div>
             </div>
 
@@ -797,15 +905,27 @@ export const WhiteSpotExplorer: React.FC<WhiteSpotExplorerProps> = ({
                   </ul>
                 </div>
 
-                {onLaunchStoreBuilder && (
-                  <button
-                    onClick={() => onLaunchStoreBuilder(activeCandidate)}
-                    className="w-full py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md shadow-purple-500/20 transition-all cursor-pointer"
-                  >
-                    <Building2 className="w-4 h-4" />
-                    <span>Build & Underwrite Store On This Site</span>
-                  </button>
-                )}
+                <div className="flex gap-2 pt-2">
+                  {onNavigateToDiagnostics && (
+                    <button
+                      onClick={() => onNavigateToDiagnostics(activeCandidate)}
+                      className="flex-1 py-2.5 rounded-xl bg-purple-100 hover:bg-purple-200 text-purple-900 border border-purple-300 font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                    >
+                      <Compass className="w-4 h-4 text-purple-700" />
+                      <span>Location Diagnostics</span>
+                    </button>
+                  )}
+
+                  {onLaunchStoreBuilder && (
+                    <button
+                      onClick={() => onLaunchStoreBuilder(activeCandidate)}
+                      className="flex-1 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md shadow-purple-500/20 transition-all cursor-pointer"
+                    >
+                      <Building2 className="w-4 h-4" />
+                      <span>Build & Underwrite</span>
+                    </button>
+                  )}
+                </div>
               </div>
             )}
           </div>

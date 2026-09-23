@@ -43,6 +43,7 @@ interface CatchmentAnalysisProps {
   selectedCandidate?: WhiteSpotCandidate | null;
   onSelectCandidate?: (cand: WhiteSpotCandidate) => void;
   onNavigateToMap?: (cand?: WhiteSpotCandidate) => void;
+  onNavigateToDiagnostics?: (cand?: WhiteSpotCandidate) => void;
 }
 
 export const CatchmentAnalysis: React.FC<CatchmentAnalysisProps> = ({
@@ -50,7 +51,8 @@ export const CatchmentAnalysis: React.FC<CatchmentAnalysisProps> = ({
   locations,
   selectedCandidate,
   onSelectCandidate,
-  onNavigateToMap
+  onNavigateToMap,
+  onNavigateToDiagnostics
 }) => {
   const [selectedTargetId, setSelectedTargetId] = useState<string>(
     selectedCandidate?.id || candidates[0]?.id || ''
@@ -257,6 +259,16 @@ export const CatchmentAnalysis: React.FC<CatchmentAnalysisProps> = ({
               <span>{isLoadingLive ? 'Fetching...' : 'Fetch Live OSM'}</span>
             </button>
 
+            {onNavigateToDiagnostics && (
+              <button
+                onClick={() => onNavigateToDiagnostics(activeCandidate)}
+                className="px-3.5 py-2.5 rounded-xl bg-purple-100 hover:bg-purple-200 text-purple-900 border border-purple-300 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+              >
+                <Compass className="w-3.5 h-3.5 text-purple-700" />
+                <span>Spatial Diagnostics</span>
+              </button>
+            )}
+
             {onNavigateToMap && (
               <button
                 onClick={() => onNavigateToMap(activeCandidate)}
@@ -274,8 +286,8 @@ export const CatchmentAnalysis: React.FC<CatchmentAnalysisProps> = ({
           <div className="flex items-center gap-2">
             <MapPin className="w-4 h-4 text-purple-700 flex-shrink-0" />
             <span className="font-bold text-purple-950 truncate">{activeCandidate.address || activeCandidate.candidateName}</span>
-            <span className="text-purple-600 font-mono text-[11px]">
-              [{activeCandidate.lat.toFixed(4)}, {activeCandidate.lng.toFixed(4)}]
+            <span className="px-2 py-0.5 rounded-md bg-purple-100 text-purple-700 text-[10px] font-bold uppercase tracking-wider">
+              {activeCandidate.city}, {activeCandidate.state}
             </span>
           </div>
           <div className="flex items-center gap-3 text-[11px]">
