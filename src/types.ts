@@ -366,6 +366,8 @@ export interface OsmPoiRecord {
   postcode?: string;
   source: 'OpenStreetMap Overpass' | 'Geoapify Places API' | string;
   distanceMiles?: number;
+  rating?: number;
+  userRatingsTotal?: number;
   hasEvChargers?: boolean;
   evPortCount?: number;
   evPowerKw?: number;
@@ -530,6 +532,8 @@ export interface RadiusAnalysisData {
     lng: number;
     address?: string;
     cStoreSqFt?: number;
+    rating?: number;
+    userRatingsTotal?: number;
     fuelTypes?: string[];
     hasEv?: boolean;
     hasDieselHdv?: boolean;

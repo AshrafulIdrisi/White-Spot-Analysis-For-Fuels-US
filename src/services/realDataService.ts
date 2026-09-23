@@ -50,46 +50,80 @@ export interface EiaFuelPriceData {
   }[];
 }
 
+import { searchGeoapifyGeocoding } from './geoapifyService.ts';
+
 /**
- * Real Live Geocoding via OpenStreetMap Nominatim API
+ * Real Live Geocoding with Dual Geoapify + OpenStreetMap Nominatim Engine
  */
 export async function geocodeSearch(query: string): Promise<GeocodedLocation[]> {
   if (!query || query.trim().length < 2) return [];
 
-  const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
-    query.trim()
-  )}&format=json&addressdetails=1&countrycodes=us&limit=8`;
+  const cleanQuery = query.trim();
+  const results: GeocodedLocation[] = [];
 
-  try {
-    const res = await fetch(url, {
+  // 1. Concurrently query Geoapify Geocoding API & Nominatim
+  const [geoapifyRes, nominatimRes] = await Promise.all([
+    searchGeoapifyGeocoding(cleanQuery, 6).catch(() => []),
+    fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(cleanQuery)}&format=json&addressdetails=1&countrycodes=us&limit=6`, {
       headers: {
         'User-Agent': 'WhiteSpotRealDataIntelligence/2026.1 (contact: analytics@whitespot-intel.com)',
         'Accept': 'application/json'
       }
+    }).then(r => r.ok ? r.json() : []).catch(() => [])
+  ]);
+
+  // Process Geoapify results
+  if (Array.isArray(geoapifyRes) && geoapifyRes.length > 0) {
+    geoapifyRes.forEach(f => {
+      if (!f.properties || !f.geometry) return;
+      const [lon, lat] = f.geometry.coordinates;
+      results.push({
+        displayName: f.properties.formatted || `${f.properties.address_line1}, ${f.properties.city}, ${f.properties.state}`,
+        lat: f.properties.lat || lat,
+        lng: f.properties.lon || lon,
+        type: f.properties.result_type || 'address',
+        address: {
+          road: f.properties.street || f.properties.address_line1,
+          city: f.properties.city || f.properties.county,
+          county: f.properties.county,
+          state: f.properties.state_code || f.properties.state,
+          postcode: f.properties.postcode,
+          country: f.properties.country || 'United States'
+        }
+      });
     });
-
-    if (!res.ok) return [];
-    const data = await res.json();
-
-    return data.map((item: any) => ({
-      displayName: item.display_name,
-      lat: parseFloat(item.lat),
-      lng: parseFloat(item.lon),
-      type: item.type || item.class || 'location',
-      address: {
-        road: item.address?.road || item.address?.pedestrian,
-        city: item.address?.city || item.address?.town || item.address?.village || item.address?.municipality,
-        county: item.address?.county,
-        state: item.address?.state,
-        postcode: item.address?.postcode,
-        country: item.address?.country
-      },
-      boundingBox: item.boundingbox ? item.boundingbox.map((b: string) => parseFloat(b)) : undefined
-    }));
-  } catch (err) {
-    console.warn('Nominatim geocode failed:', err);
-    return [];
   }
+
+  // Process Nominatim results
+  if (Array.isArray(nominatimRes) && nominatimRes.length > 0) {
+    nominatimRes.forEach((item: any) => {
+      const lat = parseFloat(item.lat);
+      const lng = parseFloat(item.lon);
+      if (isNaN(lat) || isNaN(lng)) return;
+      
+      // Avoid duplicate coordinates
+      const exists = results.some(r => Math.abs(r.lat - lat) < 0.001 && Math.abs(r.lng - lng) < 0.001);
+      if (!exists) {
+        results.push({
+          displayName: item.display_name,
+          lat,
+          lng,
+          type: item.type || item.class || 'location',
+          address: {
+            road: item.address?.road || item.address?.pedestrian,
+            city: item.address?.city || item.address?.town || item.address?.village || item.address?.municipality,
+            county: item.address?.county,
+            state: item.address?.state,
+            postcode: item.address?.postcode,
+            country: item.address?.country
+          },
+          boundingBox: item.boundingbox ? item.boundingbox.map((b: string) => parseFloat(b)) : undefined
+        });
+      }
+    });
+  }
+
+  return results;
 }
 
 /**

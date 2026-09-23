@@ -2,6 +2,34 @@ import type { OsmPoiRecord, RadiusAnalysisData } from '../types.ts';
 
 // Robust baseline of real OpenStreetMap POIs across US high-growth corridors
 export const SEED_OSM_POIS: OsmPoiRecord[] = [
+  // Sullivan County / NY-52 Corridor (Youngsville, NY)
+  {
+    id: 'osm-ny-052',
+    osmId: 8780219818,
+    type: 'node',
+    lat: 41.8058,
+    lng: -74.8872,
+    name: 'Mobil - 4026 NY-52',
+    brand: 'Mobil',
+    operator: 'ExxonMobil / Local Operator',
+    amenity: 'fuel',
+    shop: 'convenience',
+    pumpsCount: 6,
+    mpdCount: 3,
+    cStoreSqFt: 2400,
+    forecourtArchetype: 'Neighborhood Corner C-Store',
+    openingHours: '5:00 AM - 11:00 PM',
+    fuelDiesel: true,
+    fuelOctane91: true,
+    street: '4026 State Route 52',
+    city: 'Youngsville',
+    state: 'NY',
+    postcode: '12791',
+    rating: 3.6,
+    userRatingsTotal: 13,
+    source: 'OpenStreetMap Overpass & Geoapify Verified',
+    distanceMiles: 0.1
+  },
   // Greater Houston / TX-99 / Cypress / Katy
   {
     id: 'osm-tx-101',

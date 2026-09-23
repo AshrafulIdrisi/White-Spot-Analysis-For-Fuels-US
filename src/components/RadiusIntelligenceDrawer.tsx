@@ -751,11 +751,16 @@ export const RadiusIntelligenceDrawer: React.FC<RadiusIntelligenceDrawerProps> =
                                 <div className="font-bold text-slate-100 text-xs truncate max-w-[200px]">
                                   {poi.name}
                                 </div>
-                                <div className={`text-[10px] ${isEv && !isFuel ? 'text-cyan-300' : 'text-amber-300'} font-semibold flex items-center gap-1.5`}>
+                                <div className={`text-[10px] ${isEv && !isFuel ? 'text-cyan-300' : 'text-amber-300'} font-semibold flex items-center gap-1.5 flex-wrap`}>
                                   {isEv && !isFuel ? (
                                     <span>{poi.evNetwork || poi.brand || 'EV Fast Network'} • {evKw}kW DCFC</span>
                                   ) : (
                                     <span>{poi.brand || brandStyle.name} • {poi.mpdCount || mpdCount} MPD Forecourt</span>
+                                  )}
+                                  {poi.rating && (
+                                    <span className="px-1.5 py-0.2 rounded bg-amber-500/20 border border-amber-500/40 text-[9px] text-amber-300 font-bold inline-flex items-center gap-0.5">
+                                      ★ {poi.rating} {poi.userRatingsTotal ? `(${poi.userRatingsTotal})` : ''}
+                                    </span>
                                   )}
                                   {poi.forecourtConfidenceLabel && (
                                     <span className="px-1 py-0.2 rounded bg-slate-700/80 text-[8.5px] text-slate-300 font-medium">

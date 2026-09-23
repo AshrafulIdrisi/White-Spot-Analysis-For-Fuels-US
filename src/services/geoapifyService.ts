@@ -173,8 +173,8 @@ export async function getGeoapifyNearbyFuelStations(
   radiusMeters: number = 8046 // default 5 miles
 ): Promise<GeoapifyPlaceFeature[]> {
   const apiKey = getGeoapifyApiKey();
-  const categories = 'service.vehicle.fuel,commercial.convenience,service.vehicle.charging_station';
-  const url = `https://api.geoapify.com/v2/places?categories=${categories}&filter=circle:${lon},${lat},${radiusMeters}&bias=proximity:${lon},${lat}&limit=50&apiKey=${apiKey}`;
+  const categories = 'service.vehicle.fuel,commercial.convenience,service.vehicle.charging_station,commercial.supermarket,service.vehicle.car_wash';
+  const url = `https://api.geoapify.com/v2/places?categories=${encodeURIComponent(categories)}&filter=circle:${lon},${lat},${radiusMeters}&bias=proximity:${lon},${lat}&limit=60&apiKey=${apiKey}`;
 
   try {
     const res = await fetch(url, { method: 'GET' });
@@ -183,6 +183,29 @@ export async function getGeoapifyNearbyFuelStations(
     return data.features || [];
   } catch (err) {
     console.warn('Geoapify places nearby failed:', err);
+    return [];
+  }
+}
+
+/**
+ * 3b. Geocode Search via Geoapify Geocoding API (Fast autocomplete & address resolver)
+ * Example: https://api.geoapify.com/v1/geocode/search?text=4026%20NY-52&apiKey=...
+ */
+export async function searchGeoapifyGeocoding(
+  text: string,
+  limit: number = 8
+): Promise<GeoapifyPlaceFeature[]> {
+  if (!text || text.trim().length < 2) return [];
+  const apiKey = getGeoapifyApiKey();
+  const url = `https://api.geoapify.com/v1/geocode/search?text=${encodeURIComponent(text.trim())}&filter=countrycode:us&limit=${limit}&apiKey=${apiKey}`;
+
+  try {
+    const res = await fetch(url, { method: 'GET' });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.features || [];
+  } catch (err) {
+    console.warn('Geoapify geocode search failed:', err);
     return [];
   }
 }

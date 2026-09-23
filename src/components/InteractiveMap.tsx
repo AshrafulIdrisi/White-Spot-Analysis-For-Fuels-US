@@ -681,6 +681,7 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
             </div>
             <div style="font-size: 11px; color: #94a3b8; margin-bottom: 6px;">
               Brand: <strong style="color: #e2e8f0;">${poi.brand || brandStyle.name}</strong> • ${mpdCount} MPD Forecourt
+              ${poi.rating ? `<span style="margin-left: 6px; font-size: 10px; font-weight: bold; padding: 1px 6px; border-radius: 4px; background: #854d0e; color: #fef08a;">★ ${poi.rating} ${poi.userRatingsTotal ? `(${poi.userRatingsTotal})` : ''}</span>` : ''}
               ${poi.forecourtConfidenceLabel ? `<span style="margin-left: 6px; font-size: 9px; padding: 1px 5px; border-radius: 4px; background: #334155; color: #94a3b8;">${poi.forecourtConfidenceLabel}</span>` : ''}
             </div>
             ${poi.pumpsEstimationRationale ? `

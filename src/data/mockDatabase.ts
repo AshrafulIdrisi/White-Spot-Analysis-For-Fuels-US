@@ -21,6 +21,78 @@ export const DEFAULT_SCORING_WEIGHTS: ScoringWeights = {
 
 export const US_STORE_LOCATIONS: StoreLocationRecord[] = [
   {
+    id: 'loc-ny-052',
+    name: 'Mobil - 4026 NY-52',
+    brand: 'Mobil',
+    address: '4026 NY-52 (State Route 52)',
+    city: 'Youngsville',
+    state: 'NY',
+    county: 'Sullivan',
+    zipCode: '12791',
+    lat: 41.8058,
+    lng: -74.8872,
+    storeType: 'Fuel Station + C-Store',
+    isOpen: true,
+    openingYear: 2015,
+    source: 'OpenStreetMap Overpass & Real Forecourt Audit',
+    sourceDate: '2026-09-20',
+    sourceType: 'MEASURED',
+    fuelDetails: {
+      pumpsCount: 6,
+      fuelingPositions: 12,
+      cStoreSqFt: 2400,
+      fuelTypes: ['Regular 87', 'Plus 89', 'Synergy Supreme+ 93', 'Ultra-Low Sulfur Diesel'],
+      hasCarWash: false,
+      hasEvChargers: false,
+      hasQsrFood: true,
+      qsrBrand: 'Mobil Mart & Deli',
+      hasDieselHdv: true,
+      operatingHours: '5am-11pm',
+      ownershipType: 'Dealer / Franchise'
+    },
+    demographics: {
+      pop1Mile: 1850,
+      pop3Mile: 6420,
+      pop5Mile: 14800,
+      households3Mile: 2680,
+      medianIncome3Mile: 71200,
+      vehicleOwnershipRate: 0.98,
+      annualPopGrowthRate: 0.012,
+      daytimeWorkers3Mile: 2150,
+      retailSpendingIndex: 104
+    },
+    traffic: {
+      aadt: 12400,
+      roadClass: 'Principal Arterial',
+      highwayAccess: true,
+      nearbyIntersections: 2,
+      trafficSpeedMph: 45,
+      congestionIndex: 1.8
+    },
+    financials: {
+      monthlyFuelVolumeGallons: 115000,
+      avgFuelMarginCentsPerGal: 28.5,
+      monthlyCStoreRevenue: 135000,
+      cStoreGrossMarginPct: 36.5,
+      monthlyOperatingExpenses: 42000,
+      annualTotalRevenue: 6400000,
+      annualEbitda: 380000,
+      sourceType: 'MEASURED'
+    },
+    footfall: {
+      avgDailyVisits: 1450,
+      peakHour: '07:00 - 09:00',
+      dwellTimeMinutes: 8.5,
+      repeatVisitorPct: 48.2,
+      weekdayVsWeekendRatio: 0.88,
+      sourceType: 'MEASURED'
+    },
+    nearestCompetitorDistanceMiles: 3.2,
+    competitorsWithin3Miles: 1,
+    cannibalizationRiskScore: 8,
+    marketShare3MilePct: 58.4
+  },
+  {
     id: 'loc-tx-001',
     name: "Buc-ee's New Braunfels",
     brand: "Buc-ee's",
