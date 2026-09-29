@@ -41,7 +41,7 @@ import { GeoapifyPlaceDetailsModal } from './GeoapifyPlaceDetailsModal';
 import { getCompetitorBrandStyle } from '../utils/brandStyling';
 import { analyzeLocationRadius, fetchLiveOsmPois } from '../services/osmService';
 import { haversineDistance } from '../data/osmSeedData';
-import { getGeoapifyDriveTimeIsochrones, GeoapifyIsochroneResponse } from '../services/geoapifyService';
+import { getGeoapifyDriveTimeIsochrones, GeoapifyIsochroneResponse, getGeoapifyApiKey } from '../services/geoapifyService';
 import { createCandidateFrom1ClickAnalysis } from '../services/vaultStorage';
 
 interface InteractiveMapProps {
@@ -246,10 +246,11 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
   };
 
   const getTileLayerInstance = (theme: 'street' | 'osm' | 'positron' | 'satellite' | 'dark') => {
+    const geoapifyKey = getGeoapifyApiKey();
     if (theme === 'satellite') {
       return L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
         maxZoom: 18,
-        attribution: '&copy; Esri World Imagery',
+        attribution: '&copy; Esri World Imagery, Maxar',
         crossOrigin: true,
       });
     }
@@ -262,26 +263,23 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
       });
     }
     if (theme === 'positron') {
-      return L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      return L.tileLayer(`https://maps.geoapify.com/v1/tile/positron/{z}/{x}/{y}.png?apiKey=${geoapifyKey}`, {
         maxZoom: 20,
-        subdomains: 'abcd',
-        attribution: '&copy; OpenStreetMap &copy; CARTO',
+        attribution: 'Powered by Geoapify | &copy; OpenStreetMap',
         crossOrigin: true,
       });
     }
     if (theme === 'dark') {
-      return L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      return L.tileLayer(`https://maps.geoapify.com/v1/tile/dark-matter/{z}/{x}/{y}.png?apiKey=${geoapifyKey}`, {
         maxZoom: 20,
-        subdomains: 'abcd',
-        attribution: '&copy; OpenStreetMap &copy; CARTO',
+        attribution: 'Powered by Geoapify | &copy; OpenStreetMap',
         crossOrigin: true,
       });
     }
-    // Default 'street' -> CartoDB Voyager (Rock solid OpenStreetMap street styling with high-bandwidth global CDN)
-    return L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    // Default 'street' -> Geoapify OSM Bright Smooth (High-speed vector-derived raster tiles, clean & no watermark)
+    return L.tileLayer(`https://maps.geoapify.com/v1/tile/osm-bright-smooth/{z}/{x}/{y}.png?apiKey=${geoapifyKey}`, {
       maxZoom: 20,
-      subdomains: 'abcd',
-      attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+      attribution: 'Powered by Geoapify | &copy; OpenStreetMap',
       crossOrigin: true,
     });
   };

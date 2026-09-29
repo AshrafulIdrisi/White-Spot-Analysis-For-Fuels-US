@@ -249,20 +249,20 @@ export const ApiKeyGuideModal: React.FC<ApiKeyGuideModalProps> = ({
                 </div>
               </div>
 
-              {/* CartoDB & Esri GIS Basemaps */}
+              {/* Geoapify & Esri GIS Basemaps */}
               <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-slate-100 flex items-center gap-1.5">
                     <Layers className="w-4 h-4 text-purple-400" />
-                    CartoDB & ArcGIS Satellite
+                    Geoapify Vector Basemaps & ArcGIS Satellite
                   </span>
                   <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800 flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                    ACTIVE & FREE
+                    ACTIVE & CONNECTED
                   </span>
                 </div>
                 <p className="text-slate-400 text-[11px] leading-normal">
-                  High-speed Dark Mode, Clean Street Map, and Esri World Imagery photogrammetry tiles with zero rate limits.
+                  High-speed Dark Mode, OSM Bright Street Map, and Esri World Imagery photogrammetry tiles with zero rate limits and clean rendering.
                 </p>
               </div>
 
