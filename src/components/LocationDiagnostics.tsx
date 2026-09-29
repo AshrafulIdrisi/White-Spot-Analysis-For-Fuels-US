@@ -605,143 +605,59 @@ export const LocationDiagnostics: React.FC<LocationDiagnosticsProps> = ({
         </div>
       </div>
 
-      {/* Grid: Ingress/Egress & Physical Access Geometry + Commuter Flow Physics */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Section 1: Ingress, Egress & Physical Access Geometry */}
-        <div className="p-6 bg-white rounded-3xl border border-purple-200 shadow-xl space-y-5">
-          <div className="flex items-center justify-between border-b border-purple-100 pb-3">
-            <div>
-              <h3 className="text-base font-black text-purple-950 flex items-center gap-2">
-                <Navigation className="w-4 h-4 text-purple-700" />
-                Physical Ingress, Egress &amp; Access Geometry
-              </h3>
-              <p className="text-xs text-purple-600">
-                Geometric turn mechanics, curb deceleration, and visual approach horizon
-              </p>
-            </div>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
-              Grade A Accessibility
-            </span>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            <div className="p-3 bg-purple-50/60 rounded-2xl border border-purple-100">
-              <span className="text-[10px] font-bold text-purple-600 uppercase block">Road Frontage</span>
-              <span className="text-base font-black text-purple-950">{linearFrontageFt} Linear Ft</span>
-              <span className="text-[10px] text-emerald-600 block">&gt; 250 ft Benchmark ✓</span>
-            </div>
-
-            <div className="p-3 bg-purple-50/60 rounded-2xl border border-purple-100">
-              <span className="text-[10px] font-bold text-purple-600 uppercase block">Curb Cuts (Access)</span>
-              <span className="text-base font-black text-purple-950">{curbCutsCount} Dedicated Cuts</span>
-              <span className="text-[10px] text-purple-600 block">Dual Arterial Ingress</span>
-            </div>
-
-            <div className="p-3 bg-purple-50/60 rounded-2xl border border-purple-100">
-              <span className="text-[10px] font-bold text-purple-600 uppercase block">Corridor Speed</span>
-              <span className="text-base font-black text-purple-950">{speedLimitMph} MPH</span>
-              <span className="text-[10px] text-emerald-600 block">Optimal Impulse Zone</span>
-            </div>
-
-            <div className="p-3 bg-purple-50/60 rounded-2xl border border-purple-100">
-              <span className="text-[10px] font-bold text-purple-600 uppercase block">Left-Turn Status</span>
-              <span className="text-base font-black text-emerald-600">Signalized Bay</span>
-              <span className="text-[10px] text-emerald-600 block">Dedicated Median Cut ✓</span>
-            </div>
-
-            <div className="p-3 bg-purple-50/60 rounded-2xl border border-purple-100">
-              <span className="text-[10px] font-bold text-purple-600 uppercase block">Site Footprint</span>
-              <span className="text-base font-black text-purple-950">{siteAcreage} Acres</span>
-              <span className="text-[10px] text-purple-600 block">{recommendedPumps}-MPD + Tanker Turn</span>
-            </div>
-
-            <div className="p-3 bg-purple-50/60 rounded-2xl border border-purple-100">
-              <span className="text-[10px] font-bold text-purple-600 uppercase block">Sight Distance</span>
-              <span className="text-base font-black text-purple-950">{sightDistanceFt} Feet</span>
-              <span className="text-[10px] text-emerald-600 block">Zero Blind Curve Obstruction</span>
-            </div>
-          </div>
-
-          <div className="p-4 bg-purple-50 rounded-2xl border border-purple-200/80 space-y-2 text-xs">
-            <div className="font-bold text-purple-950 flex items-center justify-between flex-wrap gap-2">
-              <span>Road Side Orientation Switcher:</span>
-              <div className="flex bg-white rounded-xl p-1 border border-purple-200">
-                <button
-                  onClick={() => setRoadSideBias('PM_GOING_HOME')}
-                  className={`px-2.5 py-1 rounded-lg text-[10px] font-bold cursor-pointer transition-all ${roadSideBias === 'PM_GOING_HOME' ? 'bg-purple-600 text-white shadow-xs' : 'text-purple-700'}`}
-                >
-                  PM Going-Home Side
-                </button>
-                <button
-                  onClick={() => setRoadSideBias('AM_GOING_WORK')}
-                  className={`px-2.5 py-1 rounded-lg text-[10px] font-bold cursor-pointer transition-all ${roadSideBias === 'AM_GOING_WORK' ? 'bg-purple-600 text-white shadow-xs' : 'text-purple-700'}`}
-                >
-                  AM Inbound Side
-                </button>
-              </div>
-            </div>
-            <p className="text-purple-700 text-[11px] leading-relaxed">
-              {roadSideBias === 'PM_GOING_HOME' 
-                ? '⭐ Primary Retail Advantage: Sites on the outbound "Going-Home" side capture 65% of convenience basket shopping, fresh grocery, and evening refueling due to frictionless right-turn deceleration.'
-                : 'AM Inbound commuter side captures high coffee, breakfast sandwich, and quick morning fuel splash trips.'}
+      {/* Commuter Flow Physics & 24-Hour Diurnal Curve */}
+      <div className="p-6 bg-white rounded-3xl border border-purple-200 shadow-xl space-y-5">
+        <div className="flex items-center justify-between border-b border-purple-100 pb-3">
+          <div>
+            <h3 className="text-base font-black text-purple-950 flex items-center gap-2">
+              <Activity className="w-4 h-4 text-purple-700" />
+              Directional Traffic &amp; Commuter Flow Dynamics
+            </h3>
+            <p className="text-xs text-purple-600">
+              24-Hour hourly diurnal pulse ({aadt.toLocaleString()} AADT corridor)
             </p>
           </div>
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 border border-purple-200">
+            FHWA AADT Feed
+          </span>
         </div>
 
-        {/* Section 2: Commuter Flow Physics & 24-Hour Diurnal Curve */}
-        <div className="p-6 bg-white rounded-3xl border border-purple-200 shadow-xl space-y-5">
-          <div className="flex items-center justify-between border-b border-purple-100 pb-3">
-            <div>
-              <h3 className="text-base font-black text-purple-950 flex items-center gap-2">
-                <Activity className="w-4 h-4 text-purple-700" />
-                Directional Traffic &amp; Commuter Flow Dynamics
-              </h3>
-              <p className="text-xs text-purple-600">
-                24-Hour hourly diurnal pulse ({aadt.toLocaleString()} AADT corridor)
-              </p>
-            </div>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 border border-purple-200">
-              FHWA AADT Feed
-            </span>
-          </div>
+        <div className="h-56 w-full min-h-[220px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={diurnalCurveData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id="colorTraffic" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#7e22ce" stopOpacity={0.4}/>
+                  <stop offset="95%" stopColor="#7e22ce" stopOpacity={0.0}/>
+                </linearGradient>
+              </defs>
+              <XAxis dataKey="hour" stroke="#7e22ce" fontSize={10} tickLine={false} />
+              <YAxis stroke="#7e22ce" fontSize={10} tickLine={false} width={35} />
+              <Tooltip 
+                contentStyle={{ backgroundColor: '#ffffff', borderColor: '#d8b4fe', borderRadius: '12px', fontSize: '11px' }}
+                formatter={(val: any) => [`${val.toLocaleString()} vehicles/hr`, 'Corridor Volume']}
+              />
+              <Area type="monotone" dataKey="traffic" stroke="#7e22ce" strokeWidth={2.5} fillOpacity={1} fill="url(#colorTraffic)" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
 
-          <div className="h-48 w-full min-h-[190px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={diurnalCurveData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="colorTraffic" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#7e22ce" stopOpacity={0.4}/>
-                    <stop offset="95%" stopColor="#7e22ce" stopOpacity={0.0}/>
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="hour" stroke="#7e22ce" fontSize={10} tickLine={false} />
-                <YAxis stroke="#7e22ce" fontSize={10} tickLine={false} width={35} />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#ffffff', borderColor: '#d8b4fe', borderRadius: '12px', fontSize: '11px' }}
-                  formatter={(val: any) => [`${val.toLocaleString()} vehicles/hr`, 'Corridor Volume']}
-                />
-                <Area type="monotone" dataKey="traffic" stroke="#7e22ce" strokeWidth={2.5} fillOpacity={1} fill="url(#colorTraffic)" />
-              </AreaChart>
-            </ResponsiveContainer>
+        {/* Trip Split Breakdown */}
+        <div className="grid grid-cols-3 gap-3 text-center text-xs">
+          <div className="p-3 bg-purple-50 rounded-2xl border border-purple-100">
+            <span className="text-[10px] font-bold text-purple-600 block">Pass-By Traffic</span>
+            <span className="text-lg font-black text-purple-950">{passByPct}%</span>
+            <span className="text-[10px] text-purple-600 block">Impulse Forecourt</span>
           </div>
-
-          {/* Trip Split Breakdown */}
-          <div className="grid grid-cols-3 gap-2 text-center text-xs">
-            <div className="p-2 bg-purple-50 rounded-xl border border-purple-100">
-              <span className="text-[10px] font-bold text-purple-600 block">Pass-By Traffic</span>
-              <span className="text-base font-black text-purple-950">{passByPct}%</span>
-              <span className="text-[9px] text-purple-600 block">Impulse Forecourt</span>
-            </div>
-            <div className="p-2 bg-purple-50 rounded-xl border border-purple-100">
-              <span className="text-[10px] font-bold text-purple-600 block">Diverted-Link</span>
-              <span className="text-base font-black text-purple-700">{divertedPct}%</span>
-              <span className="text-[9px] text-purple-600 block">&lt;0.5 Mi Detour</span>
-            </div>
-            <div className="p-2 bg-purple-50 rounded-xl border border-purple-100">
-              <span className="text-[10px] font-bold text-purple-600 block">Primary Destination</span>
-              <span className="text-base font-black text-emerald-600">{primaryPct}%</span>
-              <span className="text-[9px] text-emerald-600 block">Local Household</span>
-            </div>
+          <div className="p-3 bg-purple-50 rounded-2xl border border-purple-100">
+            <span className="text-[10px] font-bold text-purple-600 block">Diverted-Link</span>
+            <span className="text-lg font-black text-purple-700">{divertedPct}%</span>
+            <span className="text-[10px] text-purple-600 block">&lt;0.5 Mi Detour</span>
+          </div>
+          <div className="p-3 bg-purple-50 rounded-2xl border border-purple-100">
+            <span className="text-[10px] font-bold text-purple-600 block">Primary Destination</span>
+            <span className="text-lg font-black text-emerald-600">{primaryPct}%</span>
+            <span className="text-[10px] text-emerald-600 block">Local Household</span>
           </div>
         </div>
       </div>

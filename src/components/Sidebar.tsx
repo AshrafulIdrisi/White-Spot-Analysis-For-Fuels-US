@@ -68,8 +68,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
       items: [
         { id: 'diagnostics', label: 'Location Spatial Diagnostics', icon: Compass, badge: 'Pure Spatial' },
         { id: 'catchment', label: '1/3/5-Mile Catchment & Risk', icon: CircleDot, badge: 'Multi-Ring' },
-        { id: 'cannibalization', label: 'Cannibalization Simulator', icon: ShieldCheck, badge: 'Huff Model' },
-        { id: 'store', label: 'Forecourt & Pumps Analyzer', icon: Fuel },
         { id: 'competitors', label: 'Competitor Intelligence', icon: Swords, badge: 'OSM POIs' },
       ]
     },
@@ -304,7 +302,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               window.dispatchEvent(event);
             }}
             className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl min-w-[56px] min-h-[44px] transition-all cursor-pointer ${
-              ['catchment', 'store', 'competitors', 'marketshare', 'footfall', 'financials', 'ai-recommendations', 'reports', 'etl', 'dataquality', 'settings'].includes(activeTab)
+              ['catchment', 'competitors', 'marketshare', 'footfall', 'financials', 'ai-recommendations', 'reports', 'etl', 'dataquality', 'settings'].includes(activeTab)
                 ? 'text-purple-700 font-bold scale-105'
                 : 'text-slate-500 hover:text-purple-800'
             }`}
