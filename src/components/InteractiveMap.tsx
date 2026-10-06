@@ -42,7 +42,8 @@ import { getCompetitorBrandStyle } from '../utils/brandStyling';
 import { analyzeLocationRadius, fetchLiveOsmPois } from '../services/osmService';
 import { haversineDistance } from '../data/osmSeedData';
 import { getGeoapifyDriveTimeIsochrones, GeoapifyIsochroneResponse, getGeoapifyApiKey } from '../services/geoapifyService';
-import { createCandidateFrom1ClickAnalysis } from '../services/vaultStorage';
+import { createCandidateFrom1ClickAnalysis, validateVaultCandidateEligibility } from '../services/vaultStorage';
+import { ALL_US_STATES } from '../data/usStatesData';
 
 interface InteractiveMapProps {
   locations: StoreLocationRecord[];
@@ -77,6 +78,9 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
   const osmPoisGroupRef = useRef<L.LayerGroup | null>(null);
   const pinnedMarkerRef = useRef<L.Marker | null>(null);
 
+  const [userMode, setUserMode] = useState<'explore' | 'analyze'>('explore');
+  const [selectedStateCode, setSelectedStateCode] = useState<string>('TX');
+  const [selectedMetro, setSelectedMetro] = useState<string>('Houston');
   const [mapTheme, setMapTheme] = useState<'street' | 'osm' | 'positron' | 'satellite' | 'dark'>('street');
   const [selectedRadiusMiles, setSelectedRadiusMiles] = useState<1 | 3 | 5>(3);
   const [driveTimeMinutes, setDriveTimeMinutes] = useState<number>(10);
@@ -88,6 +92,15 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
   const [radiusData, setRadiusData] = useState<RadiusAnalysisData | null>(null);
   const [isRadiusLoading, setIsRadiusLoading] = useState<boolean>(false);
   const [pinnedCoord, setPinnedCoord] = useState<{ lat: number; lng: number; address?: string } | null>(null);
+  
+  // Low-Competitor Verified Opportunity Points
+  const lowCompetitorWhiteSpots = useMemo(() => {
+    return whiteSpots.filter(ws => {
+      const compCount = ws.competitorCount3Miles ?? 2;
+      const oppScore = ws.opportunityScore ?? 80;
+      return compCount <= 4 && oppScore >= 68;
+    });
+  }, [whiteSpots]);
   
   // OSM Scanner Modal state
   const [showOsmScannerModal, setShowOsmScannerModal] = useState<boolean>(false);
@@ -161,7 +174,7 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
 
       setRadiusData(analysisResult);
 
-      // Automatically store and persist trade area analysis into the Deduplicated Vault
+      // Store in Vault ONLY if eligible (Exxon not already there, competition not oversaturated, high opportunity)
       if (onAddWhiteSpot && analysisResult) {
         const candidateRecord = createCandidateFrom1ClickAnalysis({
           lat,
@@ -171,20 +184,42 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
           radiusMiles: radius,
           competitorsCount: analysisResult.totalCompetitors || 0,
           nearestCompetitorMiles: analysisResult.nearestStationMiles || 2.1,
-          competitorsPumps: analysisResult.totalPumps || 16
+          competitorsPumps: analysisResult.totalPumps || 16,
+          opportunityScore: analysisResult.economics.whiteSpotOpportunityScore,
+          demandScore: analysisResult.detailedScores?.demandScore || 75,
+          supplyGapScore: analysisResult.detailedScores?.forecourtSupplyGapScore || 70,
+          trafficScore: analysisResult.detailedScores?.trafficCorridorScore || 72,
+          competitionScore: analysisResult.detailedScores?.competitionMoatScore || 80,
+          financialScore: analysisResult.detailedScores?.financialViabilityScore || 78,
+          growthScore: analysisResult.detailedScores?.growthScore || 85,
+          pop3Mile: analysisResult.demographics.population,
+          aadt: analysisResult.traffic.corridorAadt,
+          unmetDemandGallons: analysisResult.economics.unmetDemandGallons,
+          projectedEbitda: analysisResult.economics.annualEbitda,
+          estimatedCapEx: analysisResult.economics.estimatedCapEx,
+          estimatedPaybackYears: analysisResult.economics.estimatedPaybackYears,
+          riskLevel: analysisResult.overallRiskLevel === 'HIGH' ? 'High' : analysisResult.overallRiskLevel === 'MODERATE' ? 'Moderate' : 'Low',
+          recommendation: analysisResult.economics.recommendation
         });
-        onAddWhiteSpot(candidateRecord);
-        if (onSelectWhiteSpot) {
-          onSelectWhiteSpot(candidateRecord);
+
+        const admissionCheck = validateVaultCandidateEligibility(candidateRecord);
+
+        if (admissionCheck.eligible) {
+          onAddWhiteSpot(candidateRecord);
+          if (onSelectWhiteSpot) {
+            onSelectWhiteSpot(candidateRecord);
+          }
+          setSavedToVaultToast({
+            name: candidateRecord.candidateName,
+            score: candidateRecord.opportunityScore,
+            count: whiteSpots.length + 1
+          });
+          setTimeout(() => {
+            setSavedToVaultToast(null);
+          }, 4500);
+        } else {
+          console.info('Parcel skipped from Vault admission:', admissionCheck.reason);
         }
-        setSavedToVaultToast({
-          name: candidateRecord.candidateName,
-          score: candidateRecord.opportunityScore,
-          count: whiteSpots.length + 1
-        });
-        setTimeout(() => {
-          setSavedToVaultToast(null);
-        }, 4500);
       }
     } catch (err) {
       console.error('Radius analysis failed:', err);
@@ -722,18 +757,23 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
       });
     }
 
-    // 3. Render White Spot Candidates
+    // 3. Render White Spot Candidates (LOW COMPETITOR & High Opportunity ONLY)
     if (layers.whiteSpotOpportunities) {
-      whiteSpots.forEach(ws => {
+      lowCompetitorWhiteSpots.forEach(ws => {
         const isSelected = selectedWhiteSpot?.id === ws.id;
+        const isGood = (ws.opportunityScore || 80) >= 80;
+        const bgGrad = isGood ? 'from-emerald-500 to-teal-400' : 'from-amber-500 to-orange-400';
+        const pingColor = isGood ? 'bg-emerald-400/30' : 'bg-amber-400/30';
+        const labelBorder = isGood ? 'border-emerald-500/60 text-emerald-300' : 'border-amber-500/60 text-amber-300';
+
         const iconHtml = `
           <div class="relative flex items-center justify-center cursor-pointer group">
-            <div class="absolute w-8 h-8 rounded-full bg-cyan-400/30 animate-ping"></div>
-            <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-600 to-teal-400 border-2 ${isSelected ? 'border-white scale-125 shadow-lg shadow-cyan-400/80' : 'border-slate-900 shadow-md'} flex items-center justify-center text-slate-950 font-black text-xs transition-transform">
+            <div class="absolute w-8 h-8 rounded-full ${pingColor} animate-ping"></div>
+            <div class="w-8 h-8 rounded-xl bg-gradient-to-tr ${bgGrad} border-2 ${isSelected ? 'border-white scale-125 shadow-lg shadow-emerald-400/80' : 'border-slate-900 shadow-md'} flex items-center justify-center text-slate-950 font-black text-xs transition-transform">
               🎯
             </div>
-            <div class="absolute -bottom-5 whitespace-nowrap px-1.5 py-0.5 rounded bg-slate-950/90 border border-cyan-500/50 text-[10px] font-bold text-cyan-300 pointer-events-none shadow">
-              Score: ${ws.opportunityScore}
+            <div class="absolute -bottom-5 whitespace-nowrap px-1.5 py-0.5 rounded bg-slate-950/90 border ${labelBorder} text-[10px] font-bold pointer-events-none shadow">
+              ${isGood ? '🟢' : '🟠'} ${ws.opportunityScore}/100 • ${ws.competitorCount3Miles || 1} Comp
             </div>
           </div>
         `;
@@ -863,6 +903,19 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
     if (foundLoc) {
       onSelectLocation(foundLoc);
       performRadiusAnalysis(foundLoc.lat, foundLoc.lng, selectedRadiusMiles, foundLoc.name);
+      return;
+    }
+
+    // Check US State names / codes
+    const foundState = ALL_US_STATES.find(s => 
+      s.code.toLowerCase() === q || 
+      s.name.toLowerCase() === q || 
+      s.name.toLowerCase().includes(q)
+    );
+    if (foundState && leafletMapRef.current) {
+      leafletMapRef.current.flyTo([foundState.lat, foundState.lng], foundState.zoom, { duration: 1.2 });
+      performRadiusAnalysis(foundState.lat, foundState.lng, selectedRadiusMiles, `${foundState.name} Central Corridor`);
+      loadLiveOsmPois(foundState.lat, foundState.lng, selectedRadiusMiles);
     }
   };
 
@@ -938,150 +991,224 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
       <div ref={mapContainerRef} className="w-full h-full z-0 cursor-crosshair" />
 
       {/* Top Floating Control Bar */}
-      <div className="absolute top-2 sm:top-4 left-2 sm:left-4 right-2 sm:right-4 z-20 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2 pointer-events-none">
-        {/* Search Input Pill */}
-        <form onSubmit={handleSearchSubmit} className="pointer-events-auto flex items-center gap-2 bg-white/95 backdrop-blur-md p-1.5 rounded-2xl border border-purple-200 shadow-xl max-w-full md:max-w-md w-full">
-          <div className="relative flex-1">
-            <Search className="w-4 h-4 text-purple-600 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Search US Metro, ZIP, or click map..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-transparent text-xs text-purple-950 pl-9 pr-3 py-1.5 focus:outline-none placeholder:text-purple-400"
-            />
-          </div>
-          <button type="submit" className="px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition-all shadow-md shadow-purple-500/20 cursor-pointer flex-shrink-0 min-h-[34px]">
-            Analyze
-          </button>
-        </form>
-
-        {/* Quick Radius & OSM Action Controls - Scrollable on Mobile */}
-        <div className="pointer-events-auto flex items-center gap-1.5 sm:gap-2 bg-white/95 backdrop-blur-md p-1.5 rounded-2xl border border-purple-200 shadow-xl overflow-x-auto max-w-full custom-scrollbar">
-          {/* Active Site Pin / Clear Selection Button */}
-          {(pinnedCoord || selectedWhiteSpot || selectedLocation) && (
+      <div className="absolute top-2 sm:top-4 left-2 sm:left-4 right-2 sm:right-4 z-20 flex flex-col gap-2 pointer-events-none">
+        {/* User Mode Switcher + Action Bar Row */}
+        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2">
+          {/* Dual User Mode Segmented Switcher */}
+          <div className="pointer-events-auto flex items-center bg-white/95 backdrop-blur-md p-1 rounded-2xl border border-purple-200 shadow-xl self-start">
             <button
-              onClick={handleClearSelection}
-              className="px-2.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold flex items-center gap-1 transition-all cursor-pointer shadow-xs flex-shrink-0"
-              title="Clear selected location and reset catchment"
+              onClick={() => setUserMode('explore')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                userMode === 'explore'
+                  ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-500/20'
+                  : 'text-purple-900 hover:bg-purple-50'
+              }`}
             >
-              <X className="w-3.5 h-3.5" />
-              <span className="hidden xs:inline">Clear</span>
+              <span className="w-2 h-2 rounded-full bg-emerald-300 animate-pulse" />
+              <span>🟢 Explore & Discover</span>
+              <span className="text-[10px] opacity-80 hidden sm:inline">(New User)</span>
             </button>
-          )}
 
-          {/* 1, 3, 5 Mile Radius Switcher Pills */}
-          <div className="flex items-center bg-purple-50 rounded-xl p-0.5 border border-purple-100 flex-shrink-0">
-            <span className="text-[10px] text-purple-900/70 font-bold px-1.5 hidden md:inline">RADIUS:</span>
-            {([1, 3, 5] as const).map((r) => (
-              <button
-                key={r}
-                onClick={() => handleRadiusChange(r)}
-                className={`px-2 sm:px-2.5 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                  selectedRadiusMiles === r
-                    ? 'bg-purple-600 text-white shadow-sm shadow-purple-500/20'
-                    : 'text-purple-700 hover:text-purple-950 hover:bg-purple-100/60'
-                }`}
-              >
-                {r}M
-              </button>
-            ))}
+            <button
+              onClick={() => setUserMode('analyze')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                userMode === 'analyze'
+                  ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md shadow-purple-500/20'
+                  : 'text-purple-900 hover:bg-purple-50'
+              }`}
+            >
+              <Search className="w-3.5 h-3.5" />
+              <span>🔵 Search & Analyze</span>
+              <span className="text-[10px] opacity-80 hidden sm:inline">(Experienced)</span>
+            </button>
           </div>
 
-          {/* Competitor Forecourt & Pumps Explorer Button */}
-          <button
-            onClick={() => setShowCompetitorPumpsPanel(!showCompetitorPumpsPanel)}
-            className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all border cursor-pointer flex-shrink-0 ${
-              showCompetitorPumpsPanel
-                ? 'bg-purple-600 text-white border-purple-600 shadow-md shadow-purple-500/25'
-                : 'bg-white text-purple-800 border-purple-200 hover:bg-purple-50'
-            }`}
-            title="Inspect Competitor Fuel Stations & Forecourt Pumps"
-          >
-            <Fuel className={`w-3.5 h-3.5 ${showCompetitorPumpsPanel ? 'text-white' : 'text-purple-600'}`} />
-            <span>Pumps ({activeCatchmentCompetitors.length})</span>
-          </button>
+          {/* Quick Radius & OSM Action Controls - Scrollable on Mobile */}
+          <div className="pointer-events-auto flex items-center gap-1.5 sm:gap-2 bg-white/95 backdrop-blur-md p-1.5 rounded-2xl border border-purple-200 shadow-xl overflow-x-auto max-w-full custom-scrollbar">
+            {/* Active Site Pin / Clear Selection Button */}
+            {(pinnedCoord || selectedWhiteSpot || selectedLocation) && (
+              <button
+                onClick={handleClearSelection}
+                className="px-2.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold flex items-center gap-1 transition-all cursor-pointer shadow-xs flex-shrink-0"
+                title="Clear selected location and reset catchment"
+              >
+                <X className="w-3.5 h-3.5" />
+                <span className="hidden xs:inline">Clear</span>
+              </button>
+            )}
 
-          {/* Regional OSM White Spot Scanner Button */}
-          <button
-            onClick={() => setShowOsmScannerModal(true)}
-            className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-purple-500/20 transition-all cursor-pointer flex-shrink-0"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-white" />
-            <span>Scan</span>
-          </button>
+            {/* 1, 3, 5 Mile Radius Switcher Pills */}
+            <div className="flex items-center bg-purple-50 rounded-xl p-0.5 border border-purple-100 flex-shrink-0">
+              <span className="text-[10px] text-purple-900/70 font-bold px-1.5 hidden md:inline">RADIUS:</span>
+              {([1, 3, 5] as const).map((r) => (
+                <button
+                  key={r}
+                  onClick={() => handleRadiusChange(r)}
+                  className={`px-2 sm:px-2.5 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                    selectedRadiusMiles === r
+                      ? 'bg-purple-600 text-white shadow-sm shadow-purple-500/20'
+                      : 'text-purple-700 hover:text-purple-950 hover:bg-purple-100/60'
+                  }`}
+                >
+                  {r}M
+                </button>
+              ))}
+            </div>
 
-          {/* Geoapify Place Details & Isochrone Button */}
-          <button
-            onClick={() => {
-              const c = pinnedCoord 
-                ? { lat: pinnedCoord.lat, lng: pinnedCoord.lng, name: pinnedCoord.address }
-                : selectedWhiteSpot
-                ? { lat: selectedWhiteSpot.lat, lng: selectedWhiteSpot.lng, name: selectedWhiteSpot.candidateName }
-                : selectedLocation
-                ? { lat: selectedLocation.lat, lng: selectedLocation.lng, name: selectedLocation.name }
-                : leafletMapRef.current
-                ? { lat: leafletMapRef.current.getCenter().lat, lng: leafletMapRef.current.getCenter().lng, name: 'Active Map Center' }
-                : { lat: 29.98, lng: -95.75, name: 'Houston Metro' };
-              
-              setGeoapifyTarget(c);
-              setShowGeoapifyModal(true);
-            }}
-            className="px-2 sm:px-2.5 py-1.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-900 border border-purple-200 text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer flex-shrink-0"
-            title="Geoapify Places, Fuel Details & 5/10/15-Min Drive Catchment"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-purple-600" />
-            <span className="hidden xs:inline">Geoapify</span>
-          </button>
+            {/* Competitor Forecourt & Pumps Explorer Button */}
+            <button
+              onClick={() => setShowCompetitorPumpsPanel(!showCompetitorPumpsPanel)}
+              className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all border cursor-pointer flex-shrink-0 ${
+                showCompetitorPumpsPanel
+                  ? 'bg-purple-600 text-white border-purple-600 shadow-md shadow-purple-500/25'
+                  : 'bg-white text-purple-800 border-purple-200 hover:bg-purple-50'
+              }`}
+              title="Inspect Competitor Fuel Stations & Forecourt Pumps"
+            >
+              <Fuel className={`w-3.5 h-3.5 ${showCompetitorPumpsPanel ? 'text-white' : 'text-purple-600'}`} />
+              <span>Pumps ({activeCatchmentCompetitors.length})</span>
+            </button>
 
-          {/* Geoapify Drive-Time Isochrones Button */}
-          <button
-            onClick={() => {
-              const c = pinnedCoord 
-                ? { lat: pinnedCoord.lat, lng: pinnedCoord.lng }
-                : selectedWhiteSpot
-                ? { lat: selectedWhiteSpot.lat, lng: selectedWhiteSpot.lng }
-                : selectedLocation
-                ? { lat: selectedLocation.lat, lng: selectedLocation.lng }
-                : leafletMapRef.current
-                ? { lat: leafletMapRef.current.getCenter().lat, lng: leafletMapRef.current.getCenter().lng }
-                : { lat: 29.98, lng: -95.75 };
-              handleComputeIsochrones(c.lat, c.lng);
-            }}
-            disabled={isComputingIsochrones}
-            className={`px-2 sm:px-2.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all border cursor-pointer flex-shrink-0 ${
-              isochroneCount > 0
-                ? 'bg-indigo-50 text-indigo-700 border-indigo-300 shadow-xs'
-                : 'bg-white text-purple-800 border-purple-200 hover:bg-purple-50'
-            }`}
-            title="Compute 5, 10, and 15-minute road network drive-time Isochrones using Geoapify"
-          >
-            <Clock className={`w-3.5 h-3.5 text-purple-600 ${isComputingIsochrones ? 'animate-spin' : ''}`} />
-            <span>{isComputingIsochrones ? 'Routing...' : isochroneCount > 0 ? `Drive (${isochroneCount})` : 'Drive'}</span>
-          </button>
+            {/* Regional OSM White Spot Scanner Button */}
+            <button
+              onClick={() => setShowOsmScannerModal(true)}
+              className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-purple-500/20 transition-all cursor-pointer flex-shrink-0"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-white" />
+              <span>Scan</span>
+            </button>
 
-          {/* API Keys & Providers Guide Button */}
-          <button
-            onClick={() => setShowApiKeyModal(true)}
-            className="px-2 sm:px-2.5 py-1.5 rounded-xl bg-white hover:bg-purple-50 text-purple-800 border border-purple-200 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer flex-shrink-0"
-            title="Map Data Providers & API Key Guide"
-          >
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="hidden sm:inline">API Guide</span>
-          </button>
+            {/* Geoapify Drive-Time Isochrones Button */}
+            <button
+              onClick={() => {
+                const c = pinnedCoord 
+                  ? { lat: pinnedCoord.lat, lng: pinnedCoord.lng }
+                  : selectedWhiteSpot
+                  ? { lat: selectedWhiteSpot.lat, lng: selectedWhiteSpot.lng }
+                  : selectedLocation
+                  ? { lat: selectedLocation.lat, lng: selectedLocation.lng }
+                  : leafletMapRef.current
+                  ? { lat: leafletMapRef.current.getCenter().lat, lng: leafletMapRef.current.getCenter().lng }
+                  : { lat: 29.98, lng: -95.75 };
+                handleComputeIsochrones(c.lat, c.lng);
+              }}
+              disabled={isComputingIsochrones}
+              className={`px-2 sm:px-2.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all border cursor-pointer flex-shrink-0 ${
+                isochroneCount > 0
+                  ? 'bg-indigo-50 text-indigo-700 border-indigo-300 shadow-xs'
+                  : 'bg-white text-purple-800 border-purple-200 hover:bg-purple-50'
+              }`}
+              title="Compute 5, 10, and 15-minute road network drive-time Isochrones using Geoapify"
+            >
+              <Clock className={`w-3.5 h-3.5 text-purple-600 ${isComputingIsochrones ? 'animate-spin' : ''}`} />
+              <span>{isComputingIsochrones ? 'Routing...' : isochroneCount > 0 ? `Drive (${isochroneCount})` : 'Drive'}</span>
+            </button>
 
-          {/* Layer Panel Button */}
-          <button
-            onClick={() => setShowLayerPanel(!showLayerPanel)}
-            className={`p-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer flex-shrink-0 min-w-[34px] min-h-[34px] justify-center ${
-              showLayerPanel 
-                ? 'bg-purple-600 text-white border-purple-600 shadow-md shadow-purple-500/20' 
-                : 'bg-white text-purple-700 border-purple-200 hover:bg-purple-50'
-            }`}
-          >
-            <Layers className="w-4 h-4" />
-          </button>
+            {/* API Keys Guide Button */}
+            <button
+              onClick={() => setShowApiKeyModal(true)}
+              className="px-2 sm:px-2.5 py-1.5 rounded-xl bg-white hover:bg-purple-50 text-purple-800 border border-purple-200 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer flex-shrink-0"
+              title="Map Data Providers & API Key Guide"
+            >
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="hidden sm:inline">API Guide</span>
+            </button>
+
+            {/* Layer Panel Button */}
+            <button
+              onClick={() => setShowLayerPanel(!showLayerPanel)}
+              className={`p-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer flex-shrink-0 min-w-[34px] min-h-[34px] justify-center ${
+                showLayerPanel 
+                  ? 'bg-purple-600 text-white border-purple-600 shadow-md shadow-purple-500/20' 
+                  : 'bg-white text-purple-700 border-purple-200 hover:bg-purple-50'
+              }`}
+            >
+              <Layers className="w-4 h-4" />
+            </button>
+          </div>
         </div>
+
+        {/* MODE 1: New User — Explore & Discover Guided Filter Bar */}
+        {userMode === 'explore' && (
+          <div className="pointer-events-auto bg-white/95 backdrop-blur-md p-3 rounded-2xl border border-emerald-200 shadow-xl flex flex-wrap items-center gap-3 animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+              <span className="text-xs font-black text-emerald-950">Step 1: Select State</span>
+              <select
+                value={selectedStateCode}
+                onChange={(e) => {
+                  const sCode = e.target.value;
+                  setSelectedStateCode(sCode);
+                  const st = ALL_US_STATES.find(s => s.code === sCode);
+                  if (st && leafletMapRef.current) {
+                    leafletMapRef.current.flyTo([st.lat, st.lng], st.zoom || 8, { duration: 1.2 });
+                  }
+                }}
+                className="bg-emerald-50 text-xs text-emerald-950 font-bold px-3 py-1.5 rounded-xl border border-emerald-200 focus:outline-none focus:border-emerald-500 cursor-pointer"
+              >
+                {ALL_US_STATES.map(s => (
+                  <option key={s.code} value={s.code}>
+                    {s.name} ({s.code})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="h-4 w-px bg-emerald-200 hidden sm:block" />
+
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-slate-700">Top Opportunities in {selectedStateCode}:</span>
+              <div className="flex items-center gap-1.5 overflow-x-auto max-w-[420px] py-0.5 custom-scrollbar">
+                {lowCompetitorWhiteSpots
+                  .filter(w => w.state === selectedStateCode || selectedStateCode === 'ALL')
+                  .slice(0, 4)
+                  .map(ws => (
+                    <button
+                      key={ws.id}
+                      onClick={() => {
+                        onSelectWhiteSpot(ws);
+                        onSelectLocation(null);
+                        if (leafletMapRef.current) {
+                          leafletMapRef.current.flyTo([ws.lat, ws.lng], 13, { duration: 1.0 });
+                        }
+                        performRadiusAnalysis(ws.lat, ws.lng, selectedRadiusMiles, ws.candidateName);
+                      }}
+                      className={`px-2.5 py-1 rounded-xl text-[11px] font-bold border transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 shadow-2xs ${
+                        selectedWhiteSpot?.id === ws.id
+                          ? 'bg-emerald-600 text-white border-emerald-700 shadow-sm'
+                          : 'bg-white text-emerald-900 border-emerald-200 hover:bg-emerald-50'
+                      }`}
+                    >
+                      <span>🟢 {ws.city || ws.candidateName}</span>
+                      <span className="bg-emerald-100 text-emerald-800 text-[10px] px-1.5 rounded font-black">
+                        {ws.opportunityScore}/100
+                      </span>
+                    </button>
+                  ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MODE 2: Experienced User — Search & Direct Location Input */}
+        {userMode === 'analyze' && (
+          <form onSubmit={handleSearchSubmit} className="pointer-events-auto flex items-center gap-2 bg-white/95 backdrop-blur-md p-1.5 rounded-2xl border border-purple-200 shadow-xl max-w-full md:max-w-lg w-full animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 text-purple-600 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Search ZIP code, street, address, or click map..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-transparent text-xs text-purple-950 pl-9 pr-3 py-1.5 focus:outline-none placeholder:text-purple-400"
+              />
+            </div>
+            <button type="submit" className="px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition-all shadow-md shadow-purple-500/20 cursor-pointer flex-shrink-0 min-h-[34px]">
+              Analyze
+            </button>
+          </form>
+        )}
+      </div>
       </div>
 
       {/* Floating Left: GIS Layer Panel */}

@@ -9,9 +9,11 @@ import {
   CheckCircle2, 
   AlertCircle,
   Sliders,
-  ChevronRight
+  ChevronRight,
+  ShieldAlert
 } from 'lucide-react';
 import { WhiteSpotCandidate } from '../types';
+import { validateVaultCandidateEligibility } from '../services/vaultStorage';
 
 interface NewSiteModalProps {
   isOpen: boolean;
@@ -42,11 +44,13 @@ export const NewSiteModal: React.FC<NewSiteModalProps> = ({
   const [medianIncome, setMedianIncome] = useState<number>(94000);
   const [storeType, setStoreType] = useState<'Fuel Station + C-Store' | 'Travel Plaza / Truck Stop' | 'EV Charging Hub'>('Fuel Station + C-Store');
   const [pumps, setPumps] = useState<number>(12);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setValidationError(null);
 
     // Calculate score based on inputs
     const demandScore = Math.min(98, Math.round((pop3Mile / 1000) * 0.4 + (medianIncome / 2000) * 0.4 + 30));
@@ -101,6 +105,12 @@ export const NewSiteModal: React.FC<NewSiteModalProps> = ({
         `Underserved trade area with 2.1 miles separation from nearest major competitor`
       ]
     };
+
+    const check = validateVaultCandidateEligibility(newCandidate);
+    if (!check.eligible) {
+      setValidationError(check.reason || 'Candidate does not meet vault opportunity requirements.');
+      return;
+    }
 
     onAddCandidate(newCandidate);
     onClose();
@@ -209,6 +219,16 @@ export const NewSiteModal: React.FC<NewSiteModalProps> = ({
               />
             </div>
           </div>
+
+          {validationError && (
+            <div className="p-3 bg-rose-50 rounded-xl border border-rose-200 flex items-start gap-2.5 text-xs text-rose-800 animate-in fade-in">
+              <ShieldAlert className="w-4 h-4 text-rose-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <div className="font-bold text-rose-950">Vault Admission Restricted</div>
+                <div className="text-[11px] mt-0.5 text-rose-800">{validationError}</div>
+              </div>
+            </div>
+          )}
 
           <div className="pt-3 flex items-center justify-end gap-3 border-t border-purple-100">
             <button

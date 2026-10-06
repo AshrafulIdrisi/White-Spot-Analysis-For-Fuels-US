@@ -8,6 +8,7 @@ import type {
   DataQualitySummary,
   ScoringWeights 
 } from '../types.ts';
+import { generateNationwide50StateCandidates } from './usStatesData.ts';
 
 export const DEFAULT_SCORING_WEIGHTS: ScoringWeights = {
   demandPotential: 25,
@@ -675,7 +676,7 @@ export const US_STORE_LOCATIONS: StoreLocationRecord[] = [
   }
 ];
 
-export const WHITE_SPOT_CANDIDATES: WhiteSpotCandidate[] = [
+export const BASE_WHITE_SPOT_CANDIDATES: WhiteSpotCandidate[] = [
   {
     id: 'ws-tx-101',
     candidateName: 'Grand Parkway & FM 529 Expansion Corridor',
@@ -1924,6 +1925,11 @@ export const WHITE_SPOT_CANDIDATES: WhiteSpotCandidate[] = [
     tradeAreaPumpsSupplyDeficit: 14,
     tradeAreaCStoreSqFtDeficit: 5900
   }
+];
+
+export const WHITE_SPOT_CANDIDATES: WhiteSpotCandidate[] = [
+  ...generateNationwide50StateCandidates(),
+  ...BASE_WHITE_SPOT_CANDIDATES
 ];
 
 export const US_MARKET_SHARE_BRANDS: MarketShareRecord[] = [

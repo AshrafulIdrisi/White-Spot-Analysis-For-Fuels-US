@@ -340,14 +340,31 @@ export const LocationDiagnostics: React.FC<LocationDiagnosticsProps> = ({
       ? 'Under-Pumped Forecourt' 
       : 'Market Saturated';
 
-  // 3. Physical Access & Geometry Calculations
+  // 3. Standardized Connectivity & Site Accessibility Index Calculations (0-100 scale)
   const recommendedPumps = activeNode.recommendedPumps;
-  const linearFrontageFt = Math.round(240 + recommendedPumps * 5.5);
-  const speedLimitMph = isHighway ? 55 : 45;
+  const isHighwayAccess = isHighway || (activeNode.storeRef?.traffic.highwayAccess ?? false) || (aadt > 45000);
+  const roadClassification = activeNode.storeRef?.traffic.roadClass || (isHighway ? 'Interstate / State Highway Corridor' : 'Principal Commercial Arterial');
+  const speedLimitMph = isHighway ? 60 : 45;
   const curbCutsCount = recommendedPumps >= 16 ? 3 : 2;
   const siteAcreage = Number((1.6 + (recommendedPumps / 16) * 0.75).toFixed(2));
   const sightDistanceFt = Math.round(450 + (trafficScore / 100) * 250);
   const daytimeSwellRatio = Number((1.1 + (commercialScore / 100) * 0.45).toFixed(2));
+  const connectingIntersections = activeNode.storeRef?.traffic.nearbyIntersections || (aadt > 50000 ? 4 : 2);
+  const linearFrontageFt = Math.round(240 + recommendedPumps * 5.5);
+
+  // Standardized 0-100 Connectivity & Site Accessibility Index
+  const accessibilityIndex = Math.min(99, Math.max(45, Math.round(
+    (trafficScore * 0.40) + 
+    (Math.min(100, (aadt / 50000) * 80) * 0.30) + 
+    (isHighwayAccess ? 20 : 10) + 
+    (curbCutsCount >= 3 ? 10 : 5)
+  )));
+
+  const accessibilityTier = accessibilityIndex >= 90
+    ? 'Tier 1 Prime Arterial (Direct Highway Access & Multi-Curb Ingress)'
+    : accessibilityIndex >= 75
+      ? 'Tier 2 High-Connectivity Commercial Arterial'
+      : 'Tier 3 Standard Commercial Access';
 
   // 4. Live POI Categories & EV Fast-Charging Intelligence Breakdown
   const cStoreAndGroceryPois = livePois.filter(p => p.shop === 'convenience' || p.shop === 'supermarket' || p.shop === 'general');
@@ -658,6 +675,120 @@ export const LocationDiagnostics: React.FC<LocationDiagnosticsProps> = ({
             <span className="text-[10px] font-bold text-purple-600 block">Primary Destination</span>
             <span className="text-lg font-black text-emerald-600">{primaryPct}%</span>
             <span className="text-[10px] text-emerald-600 block">Local Household</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Connectivity & Site Accessibility Index */}
+      <div className="p-6 bg-white rounded-3xl border border-purple-200 shadow-xl space-y-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-purple-100 pb-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <div className="p-2 rounded-xl bg-purple-100 text-purple-800 border border-purple-200">
+                <Route className="w-5 h-5 text-purple-700" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-purple-950 flex items-center gap-2">
+                  Connectivity &amp; Site Accessibility Index
+                </h3>
+                <span className="text-xs text-purple-700 font-medium">
+                  Standardized spatial transit evaluation, corridor arterial classification, and multi-ingress maneuverability
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="text-right">
+              <div className="text-[10px] uppercase font-bold text-purple-600">Accessibility Index</div>
+              <div className="text-2xl font-black text-purple-900">
+                {accessibilityIndex} <span className="text-xs font-bold text-purple-600">/ 100</span>
+              </div>
+            </div>
+            <span className={`px-3 py-1 rounded-xl text-xs font-black ${
+              accessibilityIndex >= 90 ? 'bg-emerald-100 text-emerald-900 border border-emerald-300' :
+              accessibilityIndex >= 75 ? 'bg-purple-100 text-purple-900 border border-purple-300' :
+              'bg-amber-100 text-amber-900 border border-amber-300'
+            }`}>
+              {accessibilityTier.split(' (')[0]}
+            </span>
+          </div>
+        </div>
+
+        {/* 6 Standardized Accessibility Diagnostic Pillars */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          {/* Pillar 1: Road Classification */}
+          <div className="p-3.5 bg-purple-50/60 rounded-2xl border border-purple-100 space-y-1">
+            <span className="text-[10px] font-bold text-purple-600 uppercase block">Road Classification</span>
+            <span className="text-sm font-black text-purple-950 block truncate">{roadClassification}</span>
+            <span className="text-[10px] text-purple-700 block">{aadt.toLocaleString()} AADT corridor</span>
+          </div>
+
+          {/* Pillar 2: Highway Proximity */}
+          <div className="p-3.5 bg-purple-50/60 rounded-2xl border border-purple-100 space-y-1">
+            <span className="text-[10px] font-bold text-purple-600 uppercase block">Interstate Access</span>
+            <span className="text-sm font-black text-purple-950 block">{isHighwayAccess ? 'Direct Interchange' : 'Arterial Corridor'}</span>
+            <span className="text-[10px] text-emerald-600 font-bold block">{isHighwayAccess ? '<0.5 mi off-ramp' : '1.4 mi to Interstate'}</span>
+          </div>
+
+          {/* Pillar 3: Commercial Ingress */}
+          <div className="p-3.5 bg-purple-50/60 rounded-2xl border border-purple-100 space-y-1">
+            <span className="text-[10px] font-bold text-purple-600 uppercase block">Curb Ingress / Egress</span>
+            <span className="text-sm font-black text-purple-950 block">{curbCutsCount} Permitted Curbs</span>
+            <span className="text-[10px] text-purple-700 block">Dual right-in / right-out</span>
+          </div>
+
+          {/* Pillar 4: Sight Distance */}
+          <div className="p-3.5 bg-purple-50/60 rounded-2xl border border-purple-100 space-y-1">
+            <span className="text-[10px] font-bold text-purple-600 uppercase block">Clear Sight Window</span>
+            <span className="text-sm font-black text-purple-950 block">{sightDistanceFt} ft Visibility</span>
+            <span className="text-[10px] text-purple-700 block">Safe at {speedLimitMph} mph</span>
+          </div>
+
+          {/* Pillar 5: Connecting Arterials */}
+          <div className="p-3.5 bg-purple-50/60 rounded-2xl border border-purple-100 space-y-1">
+            <span className="text-[10px] font-bold text-purple-600 uppercase block">Feeder Intersections</span>
+            <span className="text-sm font-black text-purple-950 block">{connectingIntersections} Signalized Hubs</span>
+            <span className="text-[10px] text-purple-700 block">Within 0.5 mi trade radius</span>
+          </div>
+
+          {/* Pillar 6: Heavy Commercial Radius */}
+          <div className="p-3.5 bg-purple-50/60 rounded-2xl border border-purple-100 space-y-1">
+            <span className="text-[10px] font-bold text-purple-600 uppercase block">Freight &amp; WB-67 Sizing</span>
+            <span className="text-sm font-black text-purple-950 block">WB-67 Compliant</span>
+            <span className="text-[10px] text-emerald-600 font-bold block">50ft turning radius</span>
+          </div>
+        </div>
+
+        {/* Side-of-the-Road Commuter Capture Direction */}
+        <div className="p-4 bg-purple-50/70 rounded-2xl border border-purple-100 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2">
+            <Compass className="w-4 h-4 text-purple-700" />
+            <span className="font-bold text-purple-950">Side-of-Road Commuter Capture Bias:</span>
+            <div className="flex bg-white rounded-xl border border-purple-200 p-0.5">
+              <button
+                onClick={() => setRoadSideBias('PM_GOING_HOME')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  roadSideBias === 'PM_GOING_HOME' ? 'bg-purple-700 text-white shadow-2xs' : 'text-purple-800 hover:bg-purple-50'
+                }`}
+              >
+                PM Going Home (Outbound)
+              </button>
+              <button
+                onClick={() => setRoadSideBias('AM_GOING_WORK')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  roadSideBias === 'AM_GOING_WORK' ? 'bg-purple-700 text-white shadow-2xs' : 'text-purple-800 hover:bg-purple-50'
+                }`}
+              >
+                AM Going to Work (Inbound)
+              </button>
+            </div>
+          </div>
+
+          <div className="text-purple-800 font-medium">
+            {roadSideBias === 'PM_GOING_HOME' 
+              ? '✨ Prime Outbound Evening Side: ~1.25x higher full fuel tank fill-up & grocery spend conversion' 
+              : '⚡ Inbound Morning Side: High bean-to-cup coffee & grab-and-go bakery velocity'}
           </div>
         </div>
       </div>

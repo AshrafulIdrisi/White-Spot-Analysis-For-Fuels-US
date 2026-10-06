@@ -891,9 +891,9 @@ export const RadiusIntelligenceDrawer: React.FC<RadiusIntelligenceDrawerProps> =
                       </tr>
                       <tr>
                         <td className="p-2.5 text-slate-400 font-medium">Saturation Risk</td>
-                        <td className="p-2.5 text-emerald-300 font-semibold">{data.allRadiusBuffers?.oneMile?.riskRating || 'Low Saturated'}</td>
-                        <td className="p-2.5 text-amber-300 font-semibold">{data.allRadiusBuffers?.threeMiles?.riskRating || 'Moderate'}</td>
-                        <td className="p-2.5 text-slate-300 font-semibold">{data.allRadiusBuffers?.fiveMiles?.riskRating || 'Regional Trade'}</td>
+                        <td className="p-2.5 text-emerald-300 font-semibold">{data.allRadiusBuffers?.oneMile?.riskRating || 'Low Saturation / Prime'}</td>
+                        <td className="p-2.5 text-emerald-300 font-semibold">{data.allRadiusBuffers?.threeMiles?.riskRating || 'Low Saturation / Prime'}</td>
+                        <td className="p-2.5 text-purple-300 font-semibold">{data.allRadiusBuffers?.fiveMiles?.riskRating || 'Regional Trade Core'}</td>
                       </tr>
                     </tbody>
                   </table>

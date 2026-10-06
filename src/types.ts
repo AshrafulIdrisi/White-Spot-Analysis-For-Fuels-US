@@ -642,4 +642,246 @@ export interface BusinessProblemTemplate {
   };
 }
 
+// --------------------------------------------------------------------------
+// Geographic Hierarchy & Street-Level Intelligence Interfaces
+// Hierarchy: United States -> State -> County -> City -> ZIP -> Street -> Point
+// --------------------------------------------------------------------------
+
+export interface GeoState {
+  stateCode: string;
+  stateName: string;
+  capital: string;
+  region: 'South' | 'West' | 'Midwest' | 'Northeast';
+  lat: number;
+  lng: number;
+  zoom: number;
+  population: number;
+  countiesCount: number;
+  citiesCount: number;
+  zipCodesCount: number;
+  marketDescription: string;
+  fuelDemandIndex: number;
+  evAdoptionRank: number;
+}
+
+export interface GeoCounty {
+  countyId: string;
+  countyName: string;
+  stateCode: string;
+  fipsCode: string;
+  countySeat: string;
+  lat: number;
+  lng: number;
+  population: number;
+  households: number;
+  medianHouseholdIncome: number;
+  povertyRatePct: number;
+  citiesCount: number;
+  zipCodesCount: number;
+}
+
+export interface GeoCity {
+  cityId: string;
+  cityName: string;
+  countyId: string;
+  countyName: string;
+  stateCode: string;
+  lat: number;
+  lng: number;
+  population: number;
+  households: number;
+  medianHouseholdIncome: number;
+  zipCodes: string[];
+  majorCorridors: string[];
+}
+
+export interface GeoZipCode {
+  zipCode: string;
+  cityId: string;
+  cityName: string;
+  countyId: string;
+  countyName: string;
+  stateCode: string;
+  stateName: string;
+  lat: number;
+  lng: number;
+  population: number;
+  households: number;
+  housingUnits: number;
+  medianHouseholdIncome: number;
+  perCapitaIncome: number;
+  povertyRate: number;
+  zone: 'GREEN' | 'ORANGE' | 'RED';
+  opportunityScore: number;
+  corridorAadt: number;
+  streetsCount?: number;
+  boundingBox?: [number, number, number, number]; // [minLat, minLng, maxLat, maxLng]
+}
+
+export interface GeoStreet {
+  streetId: string;
+  streetName: string;
+  streetType: string; // 'Avenue' | 'Boulevard' | 'Highway' | 'Parkway' | 'Road' | 'Street' | 'Turnpike' | 'Expressway'
+  cityName: string;
+  countyName: string;
+  stateCode: string;
+  zipCode: string;
+  latitude: number;
+  longitude: number;
+  roadType: string; // 'Primary Arterial' | 'Secondary Arterial' | 'Interstate Ramp' | 'Commercial Collector' | 'Major Boulevard'
+  roadClass: string; // 'Class 1 Arterial' | 'Class 2 Highway' | 'Class 3 Collector'
+  speedLimitMph: number;
+  lanes: number;
+  oneWay: boolean;
+  bridge: boolean;
+  tunnel: boolean;
+  access: string; // 'Public Unrestricted' | 'Controlled Access' | 'Commercial Access' | 'Controlled Access Feeder Intersections' | etc.
+  corridorAadt: number;
+  connectingRoadsCount: number;
+  intersectionDensityPerSqMile: number;
+  nearestHighwayName: string;
+  nearestHighwayDistanceMiles: number;
+  
+  // Demand metrics
+  pop05Mile: number;
+  pop1Mile: number;
+  pop3Mile: number;
+  households1Mile: number;
+  medianHouseholdIncome: number;
+  consumerDensityIndex: number; // 0-100
+  commercialDensityIndex: number; // 0-100
+  
+  // Competition metrics
+  competitorCount05Mile: number;
+  competitorCount1Mile: number;
+  competitorCount3Mile: number;
+  competitorDensityRatio: number; // competitor_count_1m / pop1m
+  nearestStationDistanceMiles: number;
+  nearestCompetitorDistanceMiles: number;
+  nearestCompetitorBrand: string;
+  
+  // White Spot Scoring (0-100)
+  whiteSpotScore: number;
+  opportunityTier: 'Low Opportunity' | 'Moderate' | 'Good' | 'High' | 'Excellent White Spot';
+  scoreBreakdown: {
+    demand: number; // 0-100 (weight 25%)
+    population: number; // 0-100 (weight 20%)
+    income: number; // 0-100 (weight 15%)
+    accessibility: number; // 0-100 (weight 15%)
+    competitionGap: number; // 0-100 (weight 15%)
+    commercialOpportunity: number; // 0-100 (weight 10%)
+  };
+  
+  // Projections
+  unmetFuelDemandGallonsYear: number;
+  unmetCStoreDemandUsdYear: number;
+  recommendedFormat: string;
+  recommendedPumps: number;
+  evChargingDeficitPorts: number;
+  
+  // Data Lineage
+  dataSource: string;
+  sourceDate: string;
+  lastUpdated: string;
+  dataQualityRating: 'Authoritative Verified' | 'High Precision Algorithmic' | 'Estimated Model';
+}
+
+export interface GeoLocationPoint {
+  locationId: string;
+  houseNumber: string;
+  streetName: string;
+  cityName: string;
+  countyName: string;
+  stateCode: string;
+  zipCode: string;
+  fullAddress: string;
+  latitude: number;
+  longitude: number;
+  propertyType: 'Vacant Commercial Land' | 'Underutilized Retail' | 'Corner Parcel' | 'Former Automotive' | 'Hard Corner Infill';
+  lotSizeSqFt: number;
+  lotAcres: number;
+  frontageFeet: number;
+  curbCutsPermitted: number;
+  zoningClass: 'C-2 Commercial' | 'C-3 Highway Commercial' | 'B-2 Business' | 'MU Mixed-Use';
+  trafficFlowDir: 'Two-Way High-Visibility' | 'Right-Turn Commuter Inbound' | 'Interchange Ramp Feed';
+  whiteSpotScore: number;
+  opportunityTier: 'Low Opportunity' | 'Moderate' | 'Good' | 'High' | 'Excellent White Spot';
+  estimatedLandCostUsd: number;
+  optimalStoreFormat: string;
+  recommendedPumps: number;
+  accuracyLevel: 'Exact Parcel GIS Geometry' | 'Interpolated Street Address' | 'Nearest Street Node';
+  dataSource: string;
+  lastUpdated: string;
+}
+
+export interface StreetScoringWeights {
+  demandWeight: number; // default 25
+  populationWeight: number; // default 20
+  incomeWeight: number; // default 15
+  accessibilityWeight: number; // default 15
+  competitionGapWeight: number; // default 15
+  commercialWeight: number; // default 10
+}
+
+export interface OpportunityThresholds {
+  goodMin: number; // default 70
+  moderateMin: number; // default 40
+}
+
+export interface ZipAnalysisPoint {
+  pointId: string;
+  zipCode: string;
+  pointNumber: number; // 1 to 5
+  pointLabel: string; // e.g. "Primary Commercial Corridor", "ZIP Centroid", "Highway Corridor Interchange", "Suburban Arterial Junction", "Commercial Center"
+  pointType: 'Centroid' | 'Commercial Intersection' | 'Highway Corridor' | 'Suburban Arterial' | 'Transit Node';
+  latitude: number;
+  longitude: number;
+  addressDescription: string;
+  city: string;
+  county: string;
+  state: string;
+  stateCode: string;
+  
+  // Fuel Pump Opportunity Score (0 - 100)
+  opportunityScore: number;
+  opportunityTier: 'Good' | 'Moderate' | 'Low';
+  confidenceLevel: 'High' | 'Medium' | 'Low';
+  confidenceReason?: string;
+  
+  // Core Indicators
+  populationCatchment: number;
+  householdsCatchment: number;
+  populationStatus: 'Verified' | 'Modeled' | 'Unavailable';
+  populationSource: string;
+  
+  vehicleDemandStatus: 'Available' | 'Unavailable';
+  vehicleAadt?: number;
+  vehicleSource?: string;
+  vehicleDataYear?: string;
+  
+  competitorsWithin1Mile: number;
+  competitorsWithin3Miles: number;
+  nearestCompetitorDistanceMiles: number;
+  competitorSource: string;
+  
+  // Score Composition (35% Pop, 35% Vehicle, 30% Competition Gap)
+  scoringBreakdown: {
+    populationScore: number; // 35% weight
+    vehicleScore: number; // 35% weight
+    competitionGapScore: number; // 30% weight
+  };
+  
+  recommendationText: string;
+  
+  // No-hallucination Data Audit Lineage
+  dataSourceAudit: {
+    population: { name: string; year: string; status: 'Verified' | 'Modeled' | 'Unavailable' };
+    vehicle: { name: string; year: string; status: 'Available' | 'Not Available for this Location' };
+    competitors: { name: string; year: string; status: 'Verified' | 'Unavailable' };
+    geographic: { name: string; year: string; status: 'Verified Authoritative' };
+  };
+}
+
+
+
 

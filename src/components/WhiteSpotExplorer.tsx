@@ -39,6 +39,7 @@ import {
 import { WhiteSpotCandidate, ScoringWeights } from '../types';
 import { scanOsmRegionalWhiteSpots } from '../services/osmService';
 import { US_GROWTH_CORRIDORS, UsCorridor } from '../data/corridors';
+import { ALL_US_STATES } from '../data/usStatesData';
 
 interface WhiteSpotExplorerProps {
   candidates: WhiteSpotCandidate[];
@@ -69,6 +70,9 @@ export const WhiteSpotExplorer: React.FC<WhiteSpotExplorerProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRisk, setSelectedRisk] = useState<string>('ALL');
+  const [selectedState, setSelectedState] = useState<string>('ALL');
+  const [userMode, setUserMode] = useState<'guided' | 'analyst'>('guided');
+  const [activeStrategyPreset, setActiveStrategyPreset] = useState<string>('balanced');
   const [showWeightSliders, setShowWeightSliders] = useState(false);
   const [activeCandidate, setActiveCandidate] = useState<WhiteSpotCandidate | null>(candidates[0] || null);
   const [isLiveScanning, setIsLiveScanning] = useState(false);
@@ -94,17 +98,66 @@ export const WhiteSpotExplorer: React.FC<WhiteSpotExplorerProps> = ({
   };
 
   const handleResetWeights = () => {
-    const defaultW: ScoringWeights = {
-      demandPotential: 25,
-      trafficAccessibility: 20,
-      supplyGap: 20,
-      competitiveIntensity: 10,
-      commercialAttractiveness: 10,
-      financialFeasibility: 10,
-      growthPotential: 5,
-    };
-    setLocalWeights(defaultW);
-    onUpdateWeights(defaultW);
+    applyStrategyPreset('balanced');
+  };
+
+  const applyStrategyPreset = (presetKey: string) => {
+    setActiveStrategyPreset(presetKey);
+    let newWeights: ScoringWeights;
+    if (presetKey === 'volume') {
+      newWeights = {
+        demandPotential: 35,
+        trafficAccessibility: 30,
+        supplyGap: 15,
+        competitiveIntensity: 5,
+        commercialAttractiveness: 5,
+        financialFeasibility: 5,
+        growthPotential: 5,
+      };
+    } else if (presetKey === 'margin') {
+      newWeights = {
+        demandPotential: 15,
+        trafficAccessibility: 15,
+        supplyGap: 20,
+        competitiveIntensity: 5,
+        commercialAttractiveness: 25,
+        financialFeasibility: 15,
+        growthPotential: 5,
+      };
+    } else if (presetKey === 'lowrisk') {
+      newWeights = {
+        demandPotential: 10,
+        trafficAccessibility: 5,
+        supplyGap: 35,
+        competitiveIntensity: 25,
+        commercialAttractiveness: 5,
+        financialFeasibility: 20,
+        growthPotential: 0,
+      };
+    } else if (presetKey === 'ev') {
+      newWeights = {
+        demandPotential: 15,
+        trafficAccessibility: 25,
+        supplyGap: 5,
+        competitiveIntensity: 0,
+        commercialAttractiveness: 20,
+        financialFeasibility: 10,
+        growthPotential: 25,
+      };
+    } else {
+      // Balanced enterprise default
+      newWeights = {
+        demandPotential: 25,
+        trafficAccessibility: 20,
+        supplyGap: 20,
+        competitiveIntensity: 10,
+        commercialAttractiveness: 10,
+        financialFeasibility: 10,
+        growthPotential: 5,
+      };
+    }
+    setLocalWeights(newWeights);
+    onUpdateWeights(newWeights);
   };
 
   // Run live map scanning for a corridor
@@ -168,6 +221,7 @@ export const WhiteSpotExplorer: React.FC<WhiteSpotExplorerProps> = ({
   };
 
   const filteredCandidates = candidates.filter(c => {
+    if (selectedState !== 'ALL' && c.state !== selectedState) return false;
     if (selectedRisk !== 'ALL' && c.riskLevel !== selectedRisk) return false;
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
@@ -266,12 +320,30 @@ export const WhiteSpotExplorer: React.FC<WhiteSpotExplorerProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
+          {/* User Experience Mode Switcher */}
+          <div className="flex bg-purple-100/80 p-1 rounded-2xl border border-purple-200">
+            <button
+              onClick={() => setUserMode('guided')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${userMode === 'guided' ? 'bg-purple-600 text-white shadow-sm' : 'text-purple-900 hover:text-purple-700'}`}
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Guided View</span>
+            </button>
+            <button
+              onClick={() => setUserMode('analyst')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${userMode === 'analyst' ? 'bg-purple-600 text-white shadow-sm' : 'text-purple-900 hover:text-purple-700'}`}
+            >
+              <Sliders className="w-3.5 h-3.5" />
+              <span>Analyst Matrix</span>
+            </button>
+          </div>
+
           <button
             onClick={() => setShowCorridorScannerDrawer(!showCorridorScannerDrawer)}
             className="px-4 py-2.5 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs flex items-center gap-2 shadow-md shadow-purple-500/20 transition-all cursor-pointer"
           >
             <Globe className="w-4 h-4" />
-            <span>Scan US Corridors & Cities ({US_GROWTH_CORRIDORS.length})</span>
+            <span>Scan US Corridors &amp; Cities ({US_GROWTH_CORRIDORS.length})</span>
           </button>
 
           <button
@@ -313,6 +385,86 @@ export const WhiteSpotExplorer: React.FC<WhiteSpotExplorerProps> = ({
               <span>GeoJSON</span>
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* 1-Click Strategy Presets Bar for New Users & Rapid Scenario Modeling */}
+      <div className="bg-white p-4 rounded-3xl border border-purple-200 shadow-sm space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-black text-purple-950 uppercase tracking-wider flex items-center gap-1.5">
+              <Zap className="w-4 h-4 text-amber-500" />
+              1-Click Strategy Solver Presets:
+            </span>
+            <span className="text-[11px] text-purple-600">
+              Instantly adjusts multi-criteria weighting to fit your acquisition objective:
+            </span>
+          </div>
+          <span className="text-[10px] font-mono text-purple-700 bg-purple-50 px-2 py-0.5 rounded-lg border border-purple-200">
+            Active: {activeStrategyPreset.toUpperCase()}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+          <button
+            onClick={() => applyStrategyPreset('balanced')}
+            className={`p-2.5 rounded-2xl border text-left transition-all cursor-pointer ${activeStrategyPreset === 'balanced' ? 'bg-purple-600 text-white border-purple-600 shadow-md' : 'bg-purple-50/50 hover:bg-purple-100/70 border-purple-200 text-purple-950'}`}
+          >
+            <div className="text-xs font-black flex items-center gap-1">
+              <span>🎯</span> Balanced Strategic
+            </div>
+            <p className={`text-[10px] mt-0.5 ${activeStrategyPreset === 'balanced' ? 'text-purple-100' : 'text-purple-600'}`}>
+              Standard corporate baseline
+            </p>
+          </button>
+
+          <button
+            onClick={() => applyStrategyPreset('volume')}
+            className={`p-2.5 rounded-2xl border text-left transition-all cursor-pointer ${activeStrategyPreset === 'volume' ? 'bg-purple-600 text-white border-purple-600 shadow-md' : 'bg-purple-50/50 hover:bg-purple-100/70 border-purple-200 text-purple-950'}`}
+          >
+            <div className="text-xs font-black flex items-center gap-1">
+              <span>⛽</span> Volume &amp; AADT Max
+            </div>
+            <p className={`text-[10px] mt-0.5 ${activeStrategyPreset === 'volume' ? 'text-purple-100' : 'text-purple-600'}`}>
+              High traffic &amp; highway gallons
+            </p>
+          </button>
+
+          <button
+            onClick={() => applyStrategyPreset('margin')}
+            className={`p-2.5 rounded-2xl border text-left transition-all cursor-pointer ${activeStrategyPreset === 'margin' ? 'bg-purple-600 text-white border-purple-600 shadow-md' : 'bg-purple-50/50 hover:bg-purple-100/70 border-purple-200 text-purple-950'}`}
+          >
+            <div className="text-xs font-black flex items-center gap-1">
+              <span>🏪</span> C-Store &amp; Affluence
+            </div>
+            <p className={`text-[10px] mt-0.5 ${activeStrategyPreset === 'margin' ? 'text-purple-100' : 'text-purple-600'}`}>
+              High household income &amp; basket
+            </p>
+          </button>
+
+          <button
+            onClick={() => applyStrategyPreset('lowrisk')}
+            className={`p-2.5 rounded-2xl border text-left transition-all cursor-pointer ${activeStrategyPreset === 'lowrisk' ? 'bg-purple-600 text-white border-purple-600 shadow-md' : 'bg-purple-50/50 hover:bg-purple-100/70 border-purple-200 text-purple-950'}`}
+          >
+            <div className="text-xs font-black flex items-center gap-1">
+              <span>🛡️</span> Monopoly Void Defense
+            </div>
+            <p className={`text-[10px] mt-0.5 ${activeStrategyPreset === 'lowrisk' ? 'text-purple-100' : 'text-purple-600'}`}>
+              Zero nearby competitors
+            </p>
+          </button>
+
+          <button
+            onClick={() => applyStrategyPreset('ev')}
+            className={`p-2.5 rounded-2xl border text-left transition-all cursor-pointer ${activeStrategyPreset === 'ev' ? 'bg-purple-600 text-white border-purple-600 shadow-md' : 'bg-purple-50/50 hover:bg-purple-100/70 border-purple-200 text-purple-950'}`}
+          >
+            <div className="text-xs font-black flex items-center gap-1">
+              <span>⚡</span> EV &amp; Future Corridor
+            </div>
+            <p className={`text-[10px] mt-0.5 ${activeStrategyPreset === 'ev' ? 'text-purple-100' : 'text-purple-600'}`}>
+              Fast-charging &amp; pop growth
+            </p>
+          </button>
         </div>
       </div>
 
@@ -630,38 +782,118 @@ export const WhiteSpotExplorer: React.FC<WhiteSpotExplorerProps> = ({
         </div>
       ) : (
         /* POPULATED STATE: Candidates Explorer Grid */
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left 2 Cols: Search, Filter, and Ranked List */}
-          <div className="lg:col-span-2 space-y-4">
-            {/* Search & Risk Filter Bar */}
-            <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-purple-200 shadow-sm">
-              <div className="relative flex-1 min-w-[200px]">
-                <Search className="w-4 h-4 text-purple-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  placeholder="Filter candidate sites by city, corridor, zip..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2 bg-purple-50/50 border border-purple-100 rounded-xl text-xs text-purple-950 placeholder-purple-400 focus:outline-none focus:border-purple-400 font-medium"
-                />
+        <div className="space-y-4">
+          {/* Guided Mode Banner for New Users */}
+          {userMode === 'guided' && (
+            <div className="p-4 rounded-3xl bg-purple-50 border border-purple-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-purple-600 text-white flex items-center justify-center font-black text-sm shrink-0">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-black text-purple-950">
+                    Understanding the Opportunity Score (0 - 100 Scale)
+                  </h4>
+                  <p className="text-[11px] text-purple-700 leading-snug">
+                    Calculated by combining <strong>Traffic AADT Capture (20%)</strong>, <strong>Supply Void / Distance Gap (20%)</strong>, <strong>Population Demand (25%)</strong>, and <strong>Financial Feasibility / EBITDA (10%)</strong>.
+                  </p>
+                </div>
               </div>
-
-              <div className="flex items-center gap-1 text-xs">
-                {['ALL', 'Low', 'Moderate'].map((risk) => (
-                  <button
-                    key={risk}
-                    onClick={() => setSelectedRisk(risk)}
-                    className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
-                      selectedRisk === risk
-                        ? 'bg-purple-600 text-white shadow-sm'
-                        : 'bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-100'
-                    }`}
-                  >
-                    {risk === 'ALL' ? 'All Risks' : `${risk} Risk`}
-                  </button>
-                ))}
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-[10px] font-bold px-2 py-1 rounded-lg bg-emerald-100 text-emerald-900 border border-emerald-200">
+                  &gt;90: Tier-1 Flagship
+                </span>
+                <span className="text-[10px] font-bold px-2 py-1 rounded-lg bg-purple-100 text-purple-900 border border-purple-200">
+                  80-90: High Conviction
+                </span>
               </div>
             </div>
+          )}
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Left 2 Cols: Search, Filter, and Ranked List */}
+            <div className="lg:col-span-2 space-y-4">
+              {/* Search, State & Risk Filter Bar */}
+              <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-purple-200 shadow-sm">
+                <div className="relative flex-1 min-w-[180px]">
+                  <Search className="w-4 h-4 text-purple-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Filter candidate sites by city, corridor, zip..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2 bg-purple-50/50 border border-purple-100 rounded-xl text-xs text-purple-950 placeholder-purple-400 focus:outline-none focus:border-purple-400 font-medium"
+                  />
+                </div>
+
+                {/* 50 US State Filter */}
+                <div className="flex items-center gap-1.5 bg-purple-50 border border-purple-200 px-3 py-1.5 rounded-xl">
+                  <Filter className="w-3.5 h-3.5 text-purple-700" />
+                  <select
+                    value={selectedState}
+                    onChange={(e) => setSelectedState(e.target.value)}
+                    className="bg-transparent text-xs font-bold text-purple-950 outline-none cursor-pointer max-w-[160px]"
+                  >
+                    <option value="ALL">All States ({candidates.length})</option>
+                    <optgroup label="South / Sunbelt">
+                      {ALL_US_STATES.filter(s => s.region === 'South').map(st => {
+                        const cnt = candidates.filter(w => w.state === st.code).length;
+                        return (
+                          <option key={st.code} value={st.code}>
+                            {st.code} - {st.name} {cnt > 0 ? `(${cnt})` : ''}
+                          </option>
+                        );
+                      })}
+                    </optgroup>
+                    <optgroup label="West">
+                      {ALL_US_STATES.filter(s => s.region === 'West').map(st => {
+                        const cnt = candidates.filter(w => w.state === st.code).length;
+                        return (
+                          <option key={st.code} value={st.code}>
+                            {st.code} - {st.name} {cnt > 0 ? `(${cnt})` : ''}
+                          </option>
+                        );
+                      })}
+                    </optgroup>
+                    <optgroup label="Midwest">
+                      {ALL_US_STATES.filter(s => s.region === 'Midwest').map(st => {
+                        const cnt = candidates.filter(w => w.state === st.code).length;
+                        return (
+                          <option key={st.code} value={st.code}>
+                            {st.code} - {st.name} {cnt > 0 ? `(${cnt})` : ''}
+                          </option>
+                        );
+                      })}
+                    </optgroup>
+                    <optgroup label="Northeast">
+                      {ALL_US_STATES.filter(s => s.region === 'Northeast').map(st => {
+                        const cnt = candidates.filter(w => w.state === st.code).length;
+                        return (
+                          <option key={st.code} value={st.code}>
+                            {st.code} - {st.name} {cnt > 0 ? `(${cnt})` : ''}
+                          </option>
+                        );
+                      })}
+                    </optgroup>
+                  </select>
+                </div>
+
+                <div className="flex items-center gap-1 text-xs">
+                  {['ALL', 'Low', 'Moderate'].map((risk) => (
+                    <button
+                      key={risk}
+                      onClick={() => setSelectedRisk(risk)}
+                      className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
+                        selectedRisk === risk
+                          ? 'bg-purple-600 text-white shadow-sm'
+                          : 'bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-100'
+                      }`}
+                    >
+                      {risk === 'ALL' ? 'All Risks' : `${risk} Risk`}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
             {/* Candidate List Cards */}
             <div className="space-y-3">
@@ -929,6 +1161,7 @@ export const WhiteSpotExplorer: React.FC<WhiteSpotExplorerProps> = ({
               </div>
             )}
           </div>
+        </div>
         </div>
       )}
     </div>
