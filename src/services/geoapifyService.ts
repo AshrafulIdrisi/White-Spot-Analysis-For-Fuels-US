@@ -14,6 +14,9 @@ export const DEFAULT_GEOAPIFY_KEY = '8e02210b5a39430b980dc127dea71f41';
 
 export function getGeoapifyApiKey(): string {
   try {
+    if (typeof import.meta !== 'undefined' && (import.meta as any).env) {
+      if ((import.meta as any).env.VITE_GEOAPIFY_API_KEY) return (import.meta as any).env.VITE_GEOAPIFY_API_KEY.trim();
+    }
     if (typeof process !== 'undefined' && process.env) {
       if (process.env.VITE_GEOAPIFY_API_KEY) return process.env.VITE_GEOAPIFY_API_KEY.trim();
       if (process.env.GEOAPIFY_API_KEY) return process.env.GEOAPIFY_API_KEY.trim();
