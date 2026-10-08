@@ -38,10 +38,14 @@ export const CannibalizationSimulatorModule: React.FC<CannibalizationSimulatorPr
   onSelectCandidate,
   onNavigateToMap
 }) => {
-  // Use passed candidates or fallback to standard candidate library
+  // Use passed candidates or active selected site
   const candidatePool = useMemo(() => {
-    return candidates && candidates.length > 0 ? candidates : WHITE_SPOT_CANDIDATES;
-  }, [candidates]);
+    const base = candidates || [];
+    if (selectedCandidate && !base.some(c => c.id === selectedCandidate.id)) {
+      return [selectedCandidate, ...base];
+    }
+    return base;
+  }, [candidates, selectedCandidate]);
 
   const [activeSiteId, setActiveSiteId] = useState<string>(() => {
     return selectedCandidate?.id || candidatePool[0]?.id || '';

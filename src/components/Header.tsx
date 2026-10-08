@@ -15,6 +15,7 @@ import {
   BookOpen
 } from 'lucide-react';
 import { geocodeSearch, GeocodedLocation } from '../services/realDataService';
+import { WhiteSpotCandidate, StoreLocationRecord } from '../types';
 
 interface HeaderProps {
   activeTab?: string;
@@ -29,6 +30,8 @@ interface HeaderProps {
   onSelectGeocodedLocation?: (loc: { lat: number; lng: number; displayName: string }) => void;
   onToggleMobileMenu?: () => void;
   onOpenGlossary?: (kpiId?: string) => void;
+  selectedWhiteSpot?: WhiteSpotCandidate | null;
+  selectedLocation?: StoreLocationRecord | null;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -43,7 +46,9 @@ export const Header: React.FC<HeaderProps> = ({
   onSelectCoordinate,
   onSelectGeocodedLocation,
   onToggleMobileMenu,
-  onOpenGlossary
+  onOpenGlossary,
+  selectedWhiteSpot,
+  selectedLocation
 }) => {
   const [internalQuery, setInternalQuery] = useState<string>('');
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState<boolean>(false);
@@ -248,8 +253,33 @@ export const Header: React.FC<HeaderProps> = ({
           )}
         </div>
 
-        {/* Right: Action Controls & User Role */}
+          {/* Right: Action Controls & User Role */}
         <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+          {/* Active 1-Click Selected Location Badge across all tabs */}
+          {(selectedWhiteSpot || selectedLocation) && (
+            <div 
+              onClick={() => handleTabChange('map')}
+              className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-100/90 hover:bg-purple-200 text-purple-950 border border-purple-300 text-xs font-bold cursor-pointer transition-all shadow-2xs truncate max-w-[340px]"
+              title={`Active 1-Click Site: ${selectedWhiteSpot?.candidateName || selectedLocation?.name} | Score: ${selectedWhiteSpot?.opportunityScore || 'N/A'} | Fuel: ${((Number(selectedWhiteSpot?.projectedAnnualFuelGallons || 0)) / 1000000).toFixed(2)}M gal/yr | Revenue: $${((Number(selectedWhiteSpot?.projectedAnnualTotalRevenue || 0)) / 1000000).toFixed(2)}M/yr`}
+            >
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" />
+              <span className="truncate max-w-[130px]">{selectedWhiteSpot?.candidateName || selectedLocation?.name}</span>
+              {selectedWhiteSpot && (
+                <div className="flex items-center gap-1 text-[10px]">
+                  <span className="text-purple-900 bg-white px-1.5 py-0.5 rounded-md font-black shadow-2xs">
+                    Score {selectedWhiteSpot.opportunityScore}
+                  </span>
+                  <span className="text-emerald-800 bg-emerald-100/80 px-1.5 py-0.5 rounded-md font-bold">
+                    {((Number(selectedWhiteSpot.projectedAnnualFuelGallons || 0)) / 1000000).toFixed(1)}M gal
+                  </span>
+                  <span className="text-indigo-800 bg-indigo-100/80 px-1.5 py-0.5 rounded-md font-bold hidden 2xl:inline">
+                    ${((Number(selectedWhiteSpot.projectedAnnualTotalRevenue || 0)) / 1000000).toFixed(1)}M
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
           <button
             onClick={() => handleTabChange('overview')}
             className={`hidden md:flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold transition-all cursor-pointer ${

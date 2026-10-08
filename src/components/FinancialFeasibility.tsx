@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   DollarSign, 
   TrendingUp, 
@@ -28,11 +28,34 @@ import { WhiteSpotCandidate, FinancialScenarioConfig } from '../types';
 
 interface FinancialFeasibilityProps {
   candidates: WhiteSpotCandidate[];
+  selectedCandidate?: WhiteSpotCandidate | null;
 }
 
-export const FinancialFeasibility: React.FC<FinancialFeasibilityProps> = ({ candidates }) => {
-  const [selectedCandidateId, setSelectedCandidateId] = useState<string>(candidates[0]?.id || '');
-  const activeCandidate = candidates.find(c => c.id === selectedCandidateId) || candidates[0] || null;
+export const FinancialFeasibility: React.FC<FinancialFeasibilityProps> = ({ 
+  candidates, 
+  selectedCandidate 
+}) => {
+  const [selectedCandidateId, setSelectedCandidateId] = useState<string>(
+    selectedCandidate?.id || candidates[0]?.id || ''
+  );
+
+  // Sync when 1-click map selects a site
+  useEffect(() => {
+    if (selectedCandidate) {
+      setSelectedCandidateId(selectedCandidate.id);
+    }
+  }, [selectedCandidate?.id, selectedCandidate?.lat, selectedCandidate?.lng]);
+
+  const allAvailableCandidates = React.useMemo(() => {
+    if (selectedCandidate && !candidates.some(c => c.id === selectedCandidate.id)) {
+      return [selectedCandidate, ...candidates];
+    }
+    return candidates;
+  }, [candidates, selectedCandidate]);
+
+  const activeCandidate = (selectedCandidate && (selectedCandidate.id === selectedCandidateId || !selectedCandidateId))
+    ? selectedCandidate
+    : (allAvailableCandidates.find(c => c.id === selectedCandidateId) || selectedCandidate || allAvailableCandidates[0] || null);
 
   if (!activeCandidate) {
     return (
@@ -133,8 +156,9 @@ export const FinancialFeasibility: React.FC<FinancialFeasibilityProps> = ({ cand
             onChange={(e) => setSelectedCandidateId(e.target.value)}
             className="bg-purple-50 text-xs text-purple-950 px-3.5 py-2.5 rounded-xl border border-purple-200 focus:outline-none focus:border-purple-600 font-bold cursor-pointer"
           >
-            {candidates.map(c => (
+            {allAvailableCandidates.map(c => (
               <option key={c.id} value={c.id}>
+                {c.id === selectedCandidate?.id && !candidates.some(cand => cand.id === selectedCandidate.id) ? '★ 1-Click Site: ' : ''}
                 {c.candidateName} ({c.city}, {c.state})
               </option>
             ))}

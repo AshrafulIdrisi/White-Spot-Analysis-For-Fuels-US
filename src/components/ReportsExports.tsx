@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   FileText, 
   Download, 
@@ -18,11 +18,28 @@ import { WhiteSpotCandidate, StoreLocationRecord } from '../types';
 interface ReportsExportsProps {
   candidates: WhiteSpotCandidate[];
   locations: StoreLocationRecord[];
+  selectedCandidate?: WhiteSpotCandidate | null;
 }
 
-export const ReportsExports: React.FC<ReportsExportsProps> = ({ candidates, locations }) => {
-  const [selectedCandidateId, setSelectedCandidateId] = useState<string>(candidates[0]?.id || '');
-  const activeCandidate = candidates.find(c => c.id === selectedCandidateId) || candidates[0] || null;
+export const ReportsExports: React.FC<ReportsExportsProps> = ({ 
+  candidates, 
+  locations,
+  selectedCandidate 
+}) => {
+  const [selectedCandidateId, setSelectedCandidateId] = useState<string>(
+    selectedCandidate?.id || candidates[0]?.id || ''
+  );
+
+  // Sync when 1-click map selects a site
+  useEffect(() => {
+    if (selectedCandidate) {
+      setSelectedCandidateId(selectedCandidate.id);
+    }
+  }, [selectedCandidate?.id, selectedCandidate?.lat, selectedCandidate?.lng]);
+
+  const activeCandidate = (selectedCandidate && (selectedCandidate.id === selectedCandidateId || !selectedCandidateId))
+    ? selectedCandidate
+    : (candidates.find(c => c.id === selectedCandidateId) || selectedCandidate || candidates[0] || null);
 
   if (!activeCandidate) {
     return (

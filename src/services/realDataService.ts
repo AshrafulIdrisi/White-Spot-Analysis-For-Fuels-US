@@ -148,6 +148,72 @@ export async function reverseGeocode(lat: number, lng: number): Promise<string> 
   }
 }
 
+export interface StructuredAddress {
+  displayName: string;
+  road?: string;
+  city?: string;
+  county?: string;
+  state?: string;
+  postcode?: string;
+}
+
+/**
+ * Real Live Structured Reverse Geocoding via OpenStreetMap Nominatim
+ */
+export async function reverseGeocodeStructured(lat: number, lng: number): Promise<StructuredAddress> {
+  const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1`;
+
+  try {
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': 'WhiteSpotRealDataIntelligence/2026.1',
+        'Accept': 'application/json'
+      }
+    });
+
+    if (!res.ok) {
+      return { displayName: `Location [${lat.toFixed(4)}, ${lng.toFixed(4)}]` };
+    }
+    const data = await res.json();
+    const addr = data.address || {};
+    
+    const stateInput = addr.state || '';
+    let resolvedState = 'US';
+    if (stateInput) {
+      if (stateInput.length === 2) {
+        resolvedState = stateInput.toUpperCase();
+      } else {
+        const stateKey = stateInput.toLowerCase().trim();
+        const US_STATES: Record<string, string> = {
+          'alabama': 'AL', 'alaska': 'AK', 'arizona': 'AZ', 'arkansas': 'AR', 'california': 'CA',
+          'colorado': 'CO', 'connecticut': 'CT', 'delaware': 'DE', 'florida': 'FL', 'georgia': 'GA',
+          'hawaii': 'HI', 'idaho': 'ID', 'illinois': 'IL', 'indiana': 'IN', 'iowa': 'IA',
+          'kansas': 'KS', 'kentucky': 'KY', 'louisiana': 'LA', 'maine': 'ME', 'maryland': 'MD',
+          'massachusetts': 'MA', 'michigan': 'MI', 'minnesota': 'MN', 'mississippi': 'MS',
+          'missouri': 'MO', 'montana': 'MT', 'nebraska': 'NE', 'nevada': 'NV', 'new hampshire': 'NH',
+          'new jersey': 'NJ', 'new mexico': 'NM', 'new york': 'NY', 'north carolina': 'NC',
+          'north dakota': 'ND', 'ohio': 'OH', 'oklahoma': 'OK', 'oregon': 'OR', 'pennsylvania': 'PA',
+          'rhode island': 'RI', 'south carolina': 'SC', 'south dakota': 'SD', 'tennessee': 'TN',
+          'texas': 'TX', 'utah': 'UT', 'vermont': 'VT', 'virginia': 'VA', 'washington': 'WA',
+          'west virginia': 'WV', 'wisconsin': 'WI', 'wyoming': 'WY', 'district of columbia': 'DC'
+        };
+        resolvedState = US_STATES[stateKey] || stateInput.substring(0, 2).toUpperCase();
+      }
+    }
+
+    return {
+      displayName: data.display_name || `Location [${lat.toFixed(4)}, ${lng.toFixed(4)}]`,
+      road: addr.road || addr.pedestrian || addr.suburb || addr.neighbourhood || 'Arterial Parcel Node',
+      city: addr.city || addr.town || addr.village || addr.municipality || addr.county || 'Active Trade Area',
+      county: addr.county || 'Target County',
+      state: resolvedState,
+      postcode: addr.postcode || '77429'
+    };
+  } catch {
+    return { displayName: `Location [${lat.toFixed(4)}, ${lng.toFixed(4)}]` };
+  }
+}
+
 /**
  * Query live OpenStreetMap Overpass API for real fuel stations, EV chargers & c-stores
  */

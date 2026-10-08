@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
+import { ExecutiveOverview } from './components/ExecutiveOverview';
 import { InteractiveMap } from './components/InteractiveMap';
 import { WhiteSpotExplorer } from './components/WhiteSpotExplorer';
 import { StoreAnalysis } from './components/StoreAnalysis';
@@ -20,12 +21,12 @@ import { SavedVaultModule } from './components/SavedVaultModule';
 import { InvestmentMatrixModule } from './components/InvestmentMatrixModule';
 import { CannibalizationSimulatorModule } from './components/CannibalizationSimulatorModule';
 import { KpiGlossaryModal } from './components/KpiGlossaryModal';
-import { SystemDataEngineModule } from './components/SystemDataEngineModule';
 import { 
   StoreLocationRecord, 
   WhiteSpotCandidate, 
   ScoringWeights, 
-  MarketShareRecord
+  MarketShareRecord,
+  RadiusAnalysisData
 } from './types';
 import { 
   US_STORE_LOCATIONS, 
@@ -41,7 +42,7 @@ import {
 } from './services/vaultStorage';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<string>('map');
+  const [activeTab, setActiveTab] = useState<string>('overview');
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState<boolean>(false);
   const [locations, setLocations] = useState<StoreLocationRecord[]>(US_STORE_LOCATIONS);
   const [whiteSpots, setWhiteSpots] = useState<WhiteSpotCandidate[]>(() => getSavedVaultCandidates());
@@ -50,6 +51,7 @@ export default function App() {
 
   const [selectedLocation, setSelectedLocation] = useState<StoreLocationRecord | null>(null);
   const [selectedWhiteSpot, setSelectedWhiteSpot] = useState<WhiteSpotCandidate | null>(null);
+  const [selectedAnalysisData, setSelectedAnalysisData] = useState<RadiusAnalysisData | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [targetMapCoord, setTargetMapCoord] = useState<{ lat: number; lng: number; displayName?: string; address?: string } | null>(null);
 
@@ -111,9 +113,7 @@ export default function App() {
   const handleAddCustomCandidate = (newCand: WhiteSpotCandidate) => {
     setWhiteSpots(prev => {
       const res = addOrUpdateCandidateInVault(newCand, prev);
-      if (res.candidate) {
-        setSelectedWhiteSpot(res.candidate);
-      }
+      setSelectedWhiteSpot(res.candidate);
       return res.updatedList;
     });
   };
@@ -210,9 +210,47 @@ export default function App() {
           onNewSiteClick={() => setIsModalOpen(true)}
           onToggleMobileMenu={() => setIsMobileDrawerOpen(prev => !prev)}
           onOpenGlossary={handleOpenGlossary}
+          selectedWhiteSpot={selectedWhiteSpot}
+          selectedLocation={selectedLocation}
         />
 
         <main className="flex-1 overflow-y-auto bg-[#faf8ff] custom-scrollbar pb-16 lg:pb-0">
+          {activeTab === 'overview' && (
+            <ExecutiveOverview 
+              locations={locations}
+              whiteSpots={whiteSpots}
+              selectedWhiteSpot={selectedWhiteSpot}
+              selectedLocation={selectedLocation}
+              selectedAnalysisData={selectedAnalysisData}
+              onNavigateToMap={(candidate) => {
+                if (candidate) {
+                  setSelectedWhiteSpot(candidate);
+                  setTargetMapCoord({
+                    lat: candidate.lat,
+                    lng: candidate.lng,
+                    displayName: candidate.candidateName,
+                    address: candidate.address
+                  });
+                }
+                setActiveTab('map');
+              }}
+              onNavigateToDiagnostics={() => setActiveTab('diagnostics')}
+              onSelectWhiteSpot={(candidate) => {
+                setSelectedWhiteSpot(candidate);
+                setTargetMapCoord({
+                  lat: candidate.lat,
+                  lng: candidate.lng,
+                  displayName: candidate.candidateName,
+                  address: candidate.address
+                });
+              }}
+              onSelectLocation={(loc) => {
+                setSelectedLocation(loc);
+                setActiveTab('store');
+              }}
+            />
+          )}
+
           {activeTab === 'map' && (
             <InteractiveMap
               locations={locations}
@@ -225,14 +263,52 @@ export default function App() {
               onEvaluateCustomSite={handleEvaluateCustomSite}
               onOpenAIRecommendation={handleOpenAIRecommendation}
               onAddWhiteSpot={handleAddCustomCandidate}
+              onUpdateAnalysisData={setSelectedAnalysisData}
             />
           )}
 
-          {(activeTab === 'engine' || activeTab === 'vault' || activeTab === 'whitespots') && (
-            <SystemDataEngineModule
+          {activeTab === 'whitespots' && (
+            <WhiteSpotExplorer
               candidates={whiteSpots}
-              scoringWeights={scoringWeights}
+              selectedCandidate={selectedWhiteSpot}
+              weights={scoringWeights}
               onUpdateWeights={handleUpdateWeights}
+              onClearAllWhiteSpots={handleClearAllWhiteSpots}
+              onScanAndPopulateWhiteSpots={handleScanAndPopulateWhiteSpots}
+              onNavigateToMap={(candidate) => {
+                if (candidate) {
+                  setSelectedWhiteSpot(candidate);
+                  setTargetMapCoord({
+                    lat: candidate.lat,
+                    lng: candidate.lng,
+                    displayName: candidate.candidateName,
+                    address: candidate.address
+                  });
+                }
+                setActiveTab('map');
+              }}
+              onSelectCandidate={(c) => {
+                setSelectedWhiteSpot(c);
+                setTargetMapCoord({
+                  lat: c.lat,
+                  lng: c.lng,
+                  displayName: c.candidateName,
+                  address: c.address
+                });
+              }}
+              onOpenAIRecommendation={handleOpenAIRecommendation}
+              onExportData={handleExportData}
+              onNavigateToDiagnostics={(c) => {
+                if (c) setSelectedWhiteSpot(c);
+                setActiveTab('diagnostics');
+              }}
+            />
+          )}
+
+          {activeTab === 'vault' && (
+            <SavedVaultModule
+              candidates={whiteSpots}
+              selectedCandidate={selectedWhiteSpot}
               onSelectCandidate={(c) => {
                 setSelectedWhiteSpot(c);
                 setTargetMapCoord({
@@ -265,7 +341,6 @@ export default function App() {
                 setSelectedWhiteSpot(c);
                 setActiveTab('financials');
               }}
-              onExportData={handleExportData}
             />
           )}
 
@@ -352,6 +427,7 @@ export default function App() {
             <InvestmentMatrixModule
               candidates={whiteSpots}
               locations={locations}
+              selectedCandidate={selectedWhiteSpot}
               onSelectCandidateForMap={(c) => {
                 setSelectedWhiteSpot(c);
                 setTargetMapCoord({
@@ -477,6 +553,7 @@ export default function App() {
           {activeTab === 'financials' && (
             <FinancialFeasibility
               candidates={whiteSpots}
+              selectedCandidate={selectedWhiteSpot}
             />
           )}
 
@@ -492,6 +569,7 @@ export default function App() {
             <ReportsExports
               candidates={whiteSpots}
               locations={locations}
+              selectedCandidate={selectedWhiteSpot}
             />
           )}
 

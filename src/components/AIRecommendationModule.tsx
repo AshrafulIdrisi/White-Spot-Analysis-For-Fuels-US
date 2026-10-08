@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Sparkles, 
   MapPin, 
@@ -32,6 +32,10 @@ export const AIRecommendationModule: React.FC<AIRecommendationModuleProps> = ({
   const activeCandidate = selectedCandidate || candidates[0] || null;
   const [loading, setLoading] = useState(false);
   const [recommendation, setRecommendation] = useState<AIRecommendationResponse | null>(null);
+
+  useEffect(() => {
+    setRecommendation(null);
+  }, [activeCandidate?.id]);
 
   const fetchAIAnalysis = async () => {
     if (!activeCandidate) return;

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Users, 
   Car, 
@@ -62,9 +62,23 @@ export const CatchmentAnalysis: React.FC<CatchmentAnalysisProps> = ({
   const [isLoadingLive, setIsLoadingLive] = useState<boolean>(false);
   const [lastFetchedAt, setLastFetchedAt] = useState<string | null>(null);
 
+  // Sync with selectedCandidate prop (e.g. from 1-click map selection)
+  useEffect(() => {
+    if (selectedCandidate) {
+      setSelectedTargetId(selectedCandidate.id);
+    }
+  }, [selectedCandidate?.id, selectedCandidate?.lat, selectedCandidate?.lng]);
+
+  const allAvailableCandidates = useMemo(() => {
+    if (selectedCandidate && !candidates.some(c => c.id === selectedCandidate.id)) {
+      return [selectedCandidate, ...candidates];
+    }
+    return candidates;
+  }, [candidates, selectedCandidate]);
+
   const activeCandidate = (selectedCandidate && (selectedCandidate.id === selectedTargetId || !selectedTargetId))
     ? selectedCandidate
-    : (candidates.find(c => c.id === selectedTargetId) || selectedCandidate || candidates[0] || null);
+    : (allAvailableCandidates.find(c => c.id === selectedTargetId) || selectedCandidate || allAvailableCandidates[0] || null);
 
   // Fetch live Overpass & demographic data when active target changes
   const fetchLiveData = async (lat: number, lng: number, radius: 1 | 3 | 5, addressLabel?: string) => {
@@ -137,12 +151,13 @@ export const CatchmentAnalysis: React.FC<CatchmentAnalysisProps> = ({
   }
 
   // Derive metrics from live OSM analysis or candidate fallbacks
-  const pop3Mile = liveRadiusData?.demographics.population || activeCandidate.pop3Mile || 38000;
-  const pop1Mile = liveRadiusData?.multiRing?.oneMile?.pop || activeCandidate.pop1Mile || Math.round(pop3Mile * 0.28);
-  const pop5Mile = liveRadiusData?.multiRing?.fiveMiles?.pop || activeCandidate.pop5Mile || Math.round(pop3Mile * 2.85);
+  const pop3Mile = liveRadiusData?.allRadiusBuffers?.threeMiles?.population || liveRadiusData?.demographics.population || activeCandidate.pop3Mile || 38000;
+  const pop1Mile = liveRadiusData?.allRadiusBuffers?.oneMile?.population || activeCandidate.pop1Mile || Math.round(pop3Mile * 0.28);
+  const pop5Mile = liveRadiusData?.allRadiusBuffers?.fiveMiles?.population || activeCandidate.pop5Mile || Math.round(pop3Mile * 2.85);
   const medianIncome = liveRadiusData?.demographics.medianHouseholdIncome || activeCandidate.medianIncome3Mile || activeCandidate.medianHouseholdIncome || 86500;
   const aadt = liveRadiusData?.traffic.corridorAadt || activeCandidate.aadt || 28000;
-  const unmetGallons = liveRadiusData?.economics.unmetDemandGallons || activeCandidate.projectedAnnualFuelGallons || 1420000;
+  const unmetGallons = activeCandidate.tradeAreaUnmetDeficitGallons || liveRadiusData?.economics.unmetDemandGallons || 5400000;
+  const siteVolume = activeCandidate.projectedAnnualFuelGallons || liveRadiusData?.economics?.targetSiteFuelGallons || 2150000;
 
   // Data for 1 mi vs 3 mi vs 5 mi comparison
   const radiusCatchmentRows: CatchmentBufferData[] = [
@@ -152,7 +167,7 @@ export const CatchmentAnalysis: React.FC<CatchmentAnalysisProps> = ({
       households: Math.round(pop1Mile / 2.65),
       medianIncome: Math.round(medianIncome * 1.04),
       trafficAadt: aadt,
-      businessCount: liveRadiusData?.multiRing?.oneMile?.pois?.length ? liveRadiusData.multiRing.oneMile.pois.length * 28 : 142,
+      businessCount: liveRadiusData?.allRadiusBuffers?.oneMile?.competitors ? liveRadiusData.allRadiusBuffers.oneMile.competitors * 18 : 142,
       daytimeEmployees: Math.round(pop1Mile * 0.42),
       vehicleCount: Math.round(pop1Mile * 0.88),
       retailGapIndex: Math.min(150, Math.round(100 + (liveRadiusData?.nearestStationMiles || 2.1) * 12))
@@ -163,7 +178,7 @@ export const CatchmentAnalysis: React.FC<CatchmentAnalysisProps> = ({
       households: Math.round(pop3Mile / 2.65),
       medianIncome: medianIncome,
       trafficAadt: aadt,
-      businessCount: liveRadiusData?.multiRing?.threeMiles?.pois?.length ? liveRadiusData.multiRing.threeMiles.pois.length * 32 : 680,
+      businessCount: liveRadiusData?.allRadiusBuffers?.threeMiles?.competitors ? liveRadiusData.allRadiusBuffers.threeMiles.competitors * 22 : 680,
       daytimeEmployees: Math.round(pop3Mile * 0.46),
       vehicleCount: Math.round(pop3Mile * 0.85),
       retailGapIndex: Math.min(140, Math.round(100 + (liveRadiusData?.detailedScores?.forecourtSupplyGapScore || 85) * 0.35))
@@ -174,7 +189,7 @@ export const CatchmentAnalysis: React.FC<CatchmentAnalysisProps> = ({
       households: Math.round(pop5Mile / 2.65),
       medianIncome: Math.round(medianIncome * 0.96),
       trafficAadt: aadt,
-      businessCount: liveRadiusData?.multiRing?.fiveMiles?.pois?.length ? liveRadiusData.multiRing.fiveMiles.pois.length * 45 : 1850,
+      businessCount: liveRadiusData?.allRadiusBuffers?.fiveMiles?.competitors ? liveRadiusData.allRadiusBuffers.fiveMiles.competitors * 28 : 1850,
       daytimeEmployees: Math.round(pop5Mile * 0.49),
       vehicleCount: Math.round(pop5Mile * 0.82),
       retailGapIndex: 112
@@ -233,16 +248,17 @@ export const CatchmentAnalysis: React.FC<CatchmentAnalysisProps> = ({
               <select
                 value={activeCandidate.id}
                 onChange={(e) => {
-                  const target = candidates.find(c => c.id === e.target.value);
+                  const target = allAvailableCandidates.find(c => c.id === e.target.value);
                   setSelectedTargetId(e.target.value);
                   if (target && onSelectCandidate) {
                     onSelectCandidate(target);
                   }
                 }}
-                className="bg-purple-50 text-xs text-purple-950 px-3.5 py-2.5 rounded-xl border border-purple-200 focus:outline-none focus:border-purple-600 font-bold cursor-pointer max-w-[240px] truncate"
+                className="bg-purple-50 text-xs text-purple-950 px-3.5 py-2.5 rounded-xl border border-purple-200 focus:outline-none focus:border-purple-600 font-bold cursor-pointer max-w-[260px] truncate"
               >
-                {candidates.map(c => (
+                {allAvailableCandidates.map(c => (
                   <option key={c.id} value={c.id}>
+                    {c.id === selectedCandidate?.id && !candidates.some(cand => cand.id === selectedCandidate.id) ? '★ 1-Click Site: ' : ''}
                     {c.candidateName} ({c.city}, {c.state})
                   </option>
                 ))}
@@ -322,11 +338,11 @@ export const CatchmentAnalysis: React.FC<CatchmentAnalysisProps> = ({
         </div>
 
         <div className="p-4 rounded-2xl bg-white border border-purple-200 space-y-1 shadow-sm">
-          <div className="text-[11px] text-purple-600 font-semibold">Annual Unmet Fuel Deficit</div>
+          <div className="text-[11px] text-purple-600 font-semibold">Unmet Fuel Trade Area Void</div>
           <div className="text-2xl font-black text-emerald-600">
             {(unmetGallons / 1000000).toFixed(2)}M <span className="text-xs font-normal text-purple-600">Gal/yr</span>
           </div>
-          <div className="text-[10px] text-emerald-600 font-bold">Severe Retail Supply Gap</div>
+          <div className="text-[10px] text-emerald-700 font-bold">Site Captures: {(siteVolume / 1000000).toFixed(2)}M gal/yr</div>
         </div>
       </div>
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Footprints, 
   Clock, 
@@ -84,8 +84,17 @@ export const FootfallIntelligence: React.FC<FootfallIntelligenceProps> = ({
     }
   }, [selectedWhiteSpot]);
 
+  const candidatePool = useMemo(() => {
+    if (selectedWhiteSpot && !candidates.some(c => c.id === selectedWhiteSpot.id)) {
+      return [selectedWhiteSpot, ...candidates];
+    }
+    return candidates;
+  }, [candidates, selectedWhiteSpot]);
+
   // Find active location record
-  const activeCandidate = candidates.find(c => c.id === selectedSiteId);
+  const activeCandidate = (selectedWhiteSpot && (selectedWhiteSpot.id === selectedSiteId || !selectedSiteId))
+    ? selectedWhiteSpot
+    : (candidatePool.find(c => c.id === selectedSiteId) || selectedWhiteSpot || candidatePool[0]);
   const activeStore = locations.find(l => l.id === selectedSiteId);
   const activeSite = activeCandidate ? {
     id: activeCandidate.id,
@@ -336,9 +345,10 @@ export const FootfallIntelligence: React.FC<FootfallIntelligenceProps> = ({
                 className="w-full bg-slate-950 text-xs text-slate-100 pl-9 pr-8 py-2.5 rounded-xl border border-slate-700 focus:outline-none focus:border-purple-500 font-semibold cursor-pointer appearance-none"
               >
                 <optgroup label="🎯 White Spot Expansion Candidates">
-                  {candidates.map(c => (
+                  {candidatePool.map(c => (
                     <option key={c.id} value={c.id}>
-                      🎯 {c.candidateName} — {c.city}, {c.state} (AADT: {(c.aadt || (c as any).corridorAadt || 35000).toLocaleString()})
+                      {c.id === selectedWhiteSpot?.id && !candidates.some(cand => cand.id === selectedWhiteSpot.id) ? '★ 1-Click Site: ' : '🎯 '}
+                      {c.candidateName} — {c.city}, {c.state} (AADT: {(c.aadt || (c as any).corridorAadt || 35000).toLocaleString()})
                     </option>
                   ))}
                 </optgroup>

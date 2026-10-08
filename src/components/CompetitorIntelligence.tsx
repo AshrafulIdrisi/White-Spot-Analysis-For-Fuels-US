@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Swords, 
   MapPin, 
@@ -47,9 +47,16 @@ export const CompetitorIntelligence: React.FC<CompetitorIntelligenceProps> = ({
   const [isLoadingLive, setIsLoadingLive] = useState<boolean>(false);
   const [lastFetchedAt, setLastFetchedAt] = useState<string | null>(null);
 
+  const allAvailableCandidates = useMemo(() => {
+    if (selectedCandidate && !candidates.some(c => c.id === selectedCandidate.id)) {
+      return [selectedCandidate, ...candidates];
+    }
+    return candidates;
+  }, [candidates, selectedCandidate]);
+
   const activeTarget = (selectedCandidate && (selectedCandidate.id === selectedTargetId || !selectedTargetId))
     ? selectedCandidate
-    : (candidates.find(c => c.id === selectedTargetId) || selectedCandidate || candidates[0] || null);
+    : (allAvailableCandidates.find(c => c.id === selectedTargetId) || selectedCandidate || allAvailableCandidates[0] || null);
 
   // Fetch live OSM competitors around active target
   const fetchLiveCompetitors = async (lat: number, lng: number, radius: 1 | 3 | 5) => {
@@ -148,14 +155,15 @@ export const CompetitorIntelligence: React.FC<CompetitorIntelligenceProps> = ({
               <select
                 value={activeTarget.id}
                 onChange={(e) => {
-                  const target = candidates.find(c => c.id === e.target.value);
+                  const target = allAvailableCandidates.find(c => c.id === e.target.value);
                   setSelectedTargetId(e.target.value);
                   if (target && onSelectCandidate) onSelectCandidate(target);
                 }}
-                className="bg-purple-50 text-xs text-purple-950 px-3.5 py-2.5 rounded-xl border border-purple-200 focus:outline-none focus:border-purple-600 font-bold cursor-pointer max-w-[220px] truncate"
+                className="bg-purple-50 text-xs text-purple-950 px-3.5 py-2.5 rounded-xl border border-purple-200 focus:outline-none focus:border-purple-600 font-bold cursor-pointer max-w-[240px] truncate"
               >
-                {candidates.map(c => (
+                {allAvailableCandidates.map(c => (
                   <option key={c.id} value={c.id}>
+                    {c.id === selectedCandidate?.id && !candidates.some(cand => cand.id === selectedCandidate.id) ? '★ 1-Click Site: ' : ''}
                     {c.candidateName} ({c.city})
                   </option>
                 ))}

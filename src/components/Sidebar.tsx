@@ -22,9 +22,7 @@ import {
   Menu,
   MoreHorizontal,
   BookOpen,
-  Compass,
-  Globe,
-  Navigation
+  Compass
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -59,6 +57,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     {
       title: 'CORE INTELLIGENCE & GIS',
       items: [
+        { id: 'overview', label: 'Executive Problem Solver', icon: LayoutDashboard, badge: 'Strategy' },
         { id: 'map', label: '1-Click OSM Map Hub', icon: Map, badge: '1/3/5M Overpass' },
       ]
     },
@@ -75,7 +74,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
       items: [
         { id: 'marketshare', label: 'Market Share Analytics', icon: PieChart },
         { id: 'footfall', label: 'Footfall & Commuter Flow', icon: Footprints, badge: 'FHWA AADT' },
-        { id: 'matrix', label: 'Multi-Site Head-to-Head Benchmark Matrix', icon: Building2, badge: 'IC Benchmark' },
         { id: 'financials', label: 'CapEx & Pro-Forma Feasibility', icon: DollarSign, badge: 'IRR & NPV' },
         { id: 'ai-recommendations', label: 'AI Underwriting Advisor', icon: Sparkles, badge: 'Gemini' },
         { id: 'reports', label: 'Executive Memos & Export', icon: FileText },
@@ -84,10 +82,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
     {
       title: 'SYSTEM DATA & ENGINE',
       items: [
-        { id: 'engine', label: 'System Data Engine & Vault', icon: Database, badge: `${whiteSpotCount} Stored` },
+        { id: 'whitespots', label: 'White Spot Pipeline', icon: Target, badge: `${whiteSpotCount} Opps` },
+        { id: 'vault', label: 'Saved Analyses Vault', icon: Database, badge: `${whiteSpotCount} Stored` },
         { id: 'etl', label: 'Data Ingestion & Scanner', icon: UploadCloud },
         { id: 'dataquality', label: 'Data Lineage & Coverage', icon: ShieldCheck },
         { id: 'settings', label: 'Scoring Weights & Admin', icon: Sliders },
+        { id: 'matrix', label: 'Multi-Site Investment Matrix', icon: Building2, badge: 'IC Benchmark' },
       ]
     }
   ];
@@ -246,6 +246,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-purple-200 shadow-2xl py-1 px-2 safe-area-bottom">
         <div className="flex items-center justify-around">
           <button
+            onClick={() => handleTabChange('overview')}
+            className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl min-w-[56px] min-h-[44px] transition-all cursor-pointer ${
+              activeTab === 'overview'
+                ? 'text-purple-700 font-bold scale-105'
+                : 'text-slate-500 hover:text-purple-800'
+            }`}
+          >
+            <LayoutDashboard className={`w-4 h-4 ${activeTab === 'overview' ? 'text-purple-600' : ''}`} />
+            <span className="text-[10px] mt-0.5">Solver</span>
+          </button>
+
+          <button
             onClick={() => handleTabChange('map')}
             className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl min-w-[56px] min-h-[44px] transition-all cursor-pointer ${
               activeTab === 'map'
@@ -258,39 +270,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
 
           <button
-            onClick={() => handleTabChange('catchment')}
+            onClick={() => handleTabChange('whitespots')}
             className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl min-w-[56px] min-h-[44px] transition-all cursor-pointer ${
-              activeTab === 'catchment'
+              activeTab === 'whitespots'
                 ? 'text-purple-700 font-bold scale-105'
                 : 'text-slate-500 hover:text-purple-800'
             }`}
           >
-            <CircleDot className={`w-4 h-4 ${activeTab === 'catchment' ? 'text-purple-600' : ''}`} />
-            <span className="text-[10px] mt-0.5">Catchment</span>
+            <Target className={`w-4 h-4 ${activeTab === 'whitespots' ? 'text-purple-600' : ''}`} />
+            <span className="text-[10px] mt-0.5">Pipeline</span>
           </button>
 
           <button
-            onClick={() => handleTabChange('diagnostics')}
+            onClick={() => handleTabChange('vault')}
             className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl min-w-[56px] min-h-[44px] transition-all cursor-pointer ${
-              activeTab === 'diagnostics'
+              activeTab === 'vault'
                 ? 'text-purple-700 font-bold scale-105'
                 : 'text-slate-500 hover:text-purple-800'
             }`}
           >
-            <Compass className={`w-4 h-4 ${activeTab === 'diagnostics' ? 'text-purple-600' : ''}`} />
-            <span className="text-[10px] mt-0.5">Spatial</span>
-          </button>
-
-          <button
-            onClick={() => handleTabChange('engine')}
-            className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl min-w-[56px] min-h-[44px] transition-all cursor-pointer ${
-              activeTab === 'engine'
-                ? 'text-purple-700 font-bold scale-105'
-                : 'text-slate-500 hover:text-purple-800'
-            }`}
-          >
-            <Database className={`w-4 h-4 ${activeTab === 'engine' ? 'text-purple-600' : ''}`} />
-            <span className="text-[10px] mt-0.5">Engine</span>
+            <Database className={`w-4 h-4 ${activeTab === 'vault' ? 'text-purple-600' : ''}`} />
+            <span className="text-[10px] mt-0.5">Vault</span>
           </button>
 
           <button
@@ -302,7 +302,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               window.dispatchEvent(event);
             }}
             className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl min-w-[56px] min-h-[44px] transition-all cursor-pointer ${
-              ['catchment', 'competitors', 'marketshare', 'footfall', 'matrix', 'financials', 'ai-recommendations', 'reports', 'etl', 'dataquality', 'settings'].includes(activeTab)
+              ['catchment', 'competitors', 'marketshare', 'footfall', 'financials', 'ai-recommendations', 'reports', 'matrix', 'diagnostics', 'etl', 'dataquality', 'settings'].includes(activeTab)
                 ? 'text-purple-700 font-bold scale-105'
                 : 'text-slate-500 hover:text-purple-800'
             }`}

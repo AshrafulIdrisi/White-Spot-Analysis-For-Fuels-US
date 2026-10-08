@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Building2, 
   TrendingUp, 
@@ -27,6 +27,7 @@ import { WhiteSpotCandidate, StoreLocationRecord } from '../types';
 interface InvestmentMatrixProps {
   candidates: WhiteSpotCandidate[];
   locations: StoreLocationRecord[];
+  selectedCandidate?: WhiteSpotCandidate | null;
   onSelectCandidateForMap?: (candidate: WhiteSpotCandidate) => void;
   onOpenAIRecommendation?: (candidate: WhiteSpotCandidate) => void;
 }
@@ -34,16 +35,31 @@ interface InvestmentMatrixProps {
 export const InvestmentMatrixModule: React.FC<InvestmentMatrixProps> = ({
   candidates,
   locations,
+  selectedCandidate,
   onSelectCandidateForMap,
   onOpenAIRecommendation
 }) => {
   // Select up to 4 shortlisted sites for head-to-head comparison
   const [selectedSiteIds, setSelectedSiteIds] = useState<string[]>(() => {
+    if (selectedCandidate) {
+      const rest = candidates.filter(c => c.id !== selectedCandidate.id).slice(0, 2).map(c => c.id);
+      return [selectedCandidate.id, ...rest];
+    }
     if (candidates.length >= 3) {
       return candidates.slice(0, 3).map(c => c.id);
     }
     return candidates.slice(0, 2).map(c => c.id);
   });
+
+  // Sync when 1-click map selects a site
+  useEffect(() => {
+    if (selectedCandidate?.id) {
+      setSelectedSiteIds(prev => {
+        if (prev.includes(selectedCandidate.id)) return prev;
+        return [selectedCandidate.id, ...prev.filter(id => id !== selectedCandidate.id)].slice(0, 4);
+      });
+    }
+  }, [selectedCandidate?.id]);
 
   // Custom criteria weights (sum to 100)
   const [weights, setWeights] = useState({
@@ -56,10 +72,17 @@ export const InvestmentMatrixModule: React.FC<InvestmentMatrixProps> = ({
 
   const [activeViewTab, setActiveViewTab] = useState<'matrix' | 'tradeoffs' | 'radar'>('matrix');
 
+  const candidatePool = useMemo(() => {
+    if (selectedCandidate && !candidates.some(c => c.id === selectedCandidate.id)) {
+      return [selectedCandidate, ...candidates];
+    }
+    return candidates;
+  }, [candidates, selectedCandidate]);
+
   // Shortlisted candidates
   const shortlisted = useMemo(() => {
-    return candidates.filter(c => selectedSiteIds.includes(c.id));
-  }, [candidates, selectedSiteIds]);
+    return candidatePool.filter(c => selectedSiteIds.includes(c.id));
+  }, [candidatePool, selectedSiteIds]);
 
   // Compute weighted investment score for each site
   const rankedSites = useMemo(() => {
@@ -196,8 +219,9 @@ export const InvestmentMatrixModule: React.FC<InvestmentMatrixProps> = ({
         </div>
 
         <div className="flex flex-wrap gap-2">
-          {candidates.map(c => {
+          {candidatePool.map(c => {
             const isSelected = selectedSiteIds.includes(c.id);
+            const is1Click = c.id === selectedCandidate?.id && !candidates.some(cand => cand.id === selectedCandidate.id);
             return (
               <button
                 key={c.id}
@@ -213,7 +237,7 @@ export const InvestmentMatrixModule: React.FC<InvestmentMatrixProps> = ({
                 }`}>
                   {isSelected && <Check className="w-3 h-3" />}
                 </div>
-                <span>{c.candidateName}</span>
+                <span>{is1Click ? '★ 1-Click: ' : ''}{c.candidateName}</span>
                 <span className="text-[10px] text-purple-500 font-mono">({c.city})</span>
               </button>
             );

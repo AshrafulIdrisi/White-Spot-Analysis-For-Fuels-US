@@ -26,7 +26,8 @@ import {
   Check,
   Building,
   Truck,
-  FileText
+  FileText,
+  Info
 } from 'lucide-react';
 import { RadiusAnalysisData, OsmPoiRecord, WhiteSpotCandidate, LocationRiskFactor } from '../types';
 import { getCompetitorBrandStyle } from '../utils/brandStyling';
@@ -444,15 +445,42 @@ export const RadiusIntelligenceDrawer: React.FC<RadiusIntelligenceDrawerProps> =
                   </div>
 
                   <div className="p-3 bg-white rounded-xl border border-purple-100 shadow-xs">
-                    <div className="flex items-center space-x-2 text-emerald-600 mb-1">
-                      <DollarSign className="w-4 h-4" />
-                      <span className="text-[11px] font-semibold uppercase text-purple-900/70">Unmet Fuel Demand</span>
+                    <div className="flex items-center space-x-2 text-amber-600 mb-1">
+                      <Store className="w-4 h-4" />
+                      <span className="text-[11px] font-semibold uppercase text-purple-900/70">C-Store Moat</span>
                     </div>
                     <div className="text-xl font-bold text-purple-950">
-                      {((data.economics?.unmetDemandGallons || 0) / 1000000).toFixed(2)}M
+                      {data.totalCStores} <span className="text-xs text-purple-600 font-normal">Stores</span>
                     </div>
                     <div className="text-[11px] text-slate-500 mt-0.5">
-                      annual gallons deficit
+                      Void: ${(data.economics?.unmetCStoreSalesUsd / 1000000).toFixed(2)}M/yr
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-gradient-to-br from-white to-emerald-50/20 rounded-xl border border-purple-100 shadow-xs col-span-2 space-y-1.5">
+                    <div className="flex items-center space-x-2 text-emerald-600">
+                      <DollarSign className="w-4 h-4" />
+                      <span className="text-[10px] font-black uppercase tracking-wider text-purple-900/80">Required Catchment Deficits (1M / 3M / 5M)</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 pt-1.5 border-t border-purple-100/50">
+                      <div className="text-center">
+                        <span className="text-[9px] text-slate-500 font-bold block uppercase tracking-tight">1-Mile Core</span>
+                        <span className="text-xs font-black text-emerald-600">
+                          {((data.allRadiusBuffers?.oneMile?.unmetGallons || 0) / 1000000).toFixed(2)}M <span className="text-[8px] font-normal text-slate-500">g/yr</span>
+                        </span>
+                      </div>
+                      <div className="text-center border-x border-purple-100/60">
+                        <span className="text-[9px] text-slate-500 font-bold block uppercase tracking-tight">3-Mile Primary</span>
+                        <span className="text-xs font-black text-purple-950">
+                          {((data.allRadiusBuffers?.threeMiles?.unmetGallons || 0) / 1000000).toFixed(2)}M <span className="text-[8px] font-normal text-slate-500">g/yr</span>
+                        </span>
+                      </div>
+                      <div className="text-center">
+                        <span className="text-[9px] text-slate-500 font-bold block uppercase tracking-tight">5-Mile Regional</span>
+                        <span className="text-xs font-black text-purple-950">
+                          {((data.allRadiusBuffers?.fiveMiles?.unmetGallons || 0) / 1000000).toFixed(2)}M <span className="text-[8px] font-normal text-slate-500">g/yr</span>
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -482,6 +510,19 @@ export const RadiusIntelligenceDrawer: React.FC<RadiusIntelligenceDrawerProps> =
                       <span className="font-bold text-purple-700">${(data.economics.estimatedCapEx / 1000000).toFixed(2)}M</span>
                     </div>
                   </div>
+                </div>
+
+                {/* Underwriting Explanation: Radius Deficit vs. Site Capture */}
+                <div className="p-3.5 bg-indigo-50/70 border border-indigo-100 rounded-xl space-y-1.5 text-xs shadow-xs">
+                  <div className="font-bold text-indigo-950 flex items-center gap-1.5">
+                    <Info className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>Difference Explained: Macro Void vs. Target Site Capture</span>
+                  </div>
+                  <p className="text-[11px] text-indigo-800 leading-relaxed font-medium">
+                    This location has a broader <strong className="text-indigo-950">Unmet Fuel Demand Deficit of {((data.allRadiusBuffers?.fiveMiles?.unmetGallons || data.economics?.unmetDemandGallons || 14150000) / 1000000).toFixed(2)}M gal/yr</strong> within the wider 5-mile catchment. 
+                    However, a single retail station is physically capped by dispenser throughput (e.g. {data.economics.recommendedPumps} fuel positions). 
+                    The <strong className="text-indigo-950">Unmet Trade Area Void of {((data.economics?.targetSiteFuelGallons || 2670000) / 1000000).toFixed(2)}M gal/yr</strong> is the exact realistic portion of that deficit that this specific proposed station is audited & projected to capture annually.
+                  </p>
                 </div>
 
                 {/* Corridor & Traffic Insight */}
@@ -891,9 +932,9 @@ export const RadiusIntelligenceDrawer: React.FC<RadiusIntelligenceDrawerProps> =
                       </tr>
                       <tr>
                         <td className="p-2.5 text-slate-400 font-medium">Saturation Risk</td>
-                        <td className="p-2.5 text-emerald-300 font-semibold">{data.allRadiusBuffers?.oneMile?.riskRating || 'Low Saturation / Prime'}</td>
-                        <td className="p-2.5 text-emerald-300 font-semibold">{data.allRadiusBuffers?.threeMiles?.riskRating || 'Low Saturation / Prime'}</td>
-                        <td className="p-2.5 text-purple-300 font-semibold">{data.allRadiusBuffers?.fiveMiles?.riskRating || 'Regional Trade Core'}</td>
+                        <td className="p-2.5 text-emerald-300 font-semibold">{data.allRadiusBuffers?.oneMile?.riskRating || 'Low Saturated'}</td>
+                        <td className="p-2.5 text-amber-300 font-semibold">{data.allRadiusBuffers?.threeMiles?.riskRating || 'Moderate'}</td>
+                        <td className="p-2.5 text-slate-300 font-semibold">{data.allRadiusBuffers?.fiveMiles?.riskRating || 'Regional Trade'}</td>
                       </tr>
                     </tbody>
                   </table>

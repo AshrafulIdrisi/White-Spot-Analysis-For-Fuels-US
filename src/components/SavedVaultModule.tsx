@@ -27,6 +27,7 @@ import { WhiteSpotCandidate } from '../types';
 
 interface SavedVaultModuleProps {
   candidates: WhiteSpotCandidate[];
+  selectedCandidate?: WhiteSpotCandidate | null;
   onSelectCandidate: (candidate: WhiteSpotCandidate) => void;
   onNavigateToMap: (candidate?: WhiteSpotCandidate) => void;
   onOpenAIRecommendation: (candidate: WhiteSpotCandidate) => void;
@@ -38,6 +39,7 @@ interface SavedVaultModuleProps {
 
 export const SavedVaultModule: React.FC<SavedVaultModuleProps> = ({
   candidates,
+  selectedCandidate,
   onSelectCandidate,
   onNavigateToMap,
   onOpenAIRecommendation,
@@ -127,6 +129,21 @@ export const SavedVaultModule: React.FC<SavedVaultModuleProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
+          {candidates.length > 0 && onClearVault && (
+            <button
+              onClick={() => {
+                if (window.confirm ? window.confirm('Are you sure you want to clear all stored trade area records?') : true) {
+                  onClearVault();
+                }
+              }}
+              className="px-4 py-2.5 rounded-2xl bg-white hover:bg-red-50 text-red-600 hover:text-red-700 border border-red-200 font-bold text-xs flex items-center gap-2 transition-all cursor-pointer shadow-xs"
+              title="Remove all stored trade area records from the vault"
+            >
+              <Trash2 className="w-4 h-4 text-red-500" />
+              <span>Clear All Data</span>
+            </button>
+          )}
+
           <button
             onClick={handleExportVaultJSON}
             className="px-4 py-2.5 rounded-2xl bg-purple-50 hover:bg-purple-100 text-purple-900 border border-purple-200 font-bold text-xs flex items-center gap-2 transition-all cursor-pointer"
@@ -470,34 +487,63 @@ export const SavedVaultModule: React.FC<SavedVaultModuleProps> = ({
                         </span>
                       </div>
 
-                      <p className="text-xs text-purple-700 flex items-center gap-3">
-                        <span className="font-medium">{cand.address || `${cand.city}, ${cand.state}`}</span>
-                        <span>•</span>
-                        <span>{(cand.aadt || 0).toLocaleString()} AADT</span>
-                        <span>•</span>
-                        <span className="text-emerald-700 font-bold">{cand.nearestStationMiles} mi to nearest station</span>
-                        <span>•</span>
-                        <span>3M Pop: {(cand.pop3Mile || 0).toLocaleString()}</span>
-                      </p>
+                      <div className="text-xs text-purple-700 space-y-1.5 mt-1">
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                          <span className="font-semibold text-purple-950">{cand.address || `${cand.city}, ${cand.state}`}</span>
+                          <span>•</span>
+                          <span className="text-purple-800 font-medium">Population: <strong>{(cand.pop3Mile || 0).toLocaleString()}</strong> residents</span>
+                          <span>•</span>
+                          <span className="text-purple-800 font-medium">Traffic: <strong>{(cand.aadt || 0).toLocaleString()}</strong> AADT</span>
+                        </div>
+
+                        {/* Competitor Fleet & Forecourt Details */}
+                        <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                          <span className="px-2 py-0.5 rounded-lg bg-purple-50 text-purple-800 border border-purple-200 font-bold">
+                            Fleet: {cand.competitorCount3Miles} Stations ({cand.competitorFleetSummary?.totalPumps || (cand.competitorCount3Miles * 8)} Pumps)
+                          </span>
+                          <span className="px-2 py-0.5 rounded-lg bg-purple-50 text-purple-800 border border-purple-200 font-medium">
+                            Nearest Comp: <strong>{cand.nearestStationMiles} mi</strong>
+                          </span>
+                          {cand.tradeAreaUnmetDeficitGallons && (
+                            <span className="px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 font-bold">
+                              Trade Area Void: {(cand.tradeAreaUnmetDeficitGallons / 1000000).toFixed(2)}M gal/yr
+                            </span>
+                          )}
+                          <span className="px-2 py-0.5 rounded-lg bg-emerald-100 text-emerald-900 border border-emerald-300 font-black">
+                            Site Volume: {((cand.projectedAnnualFuelGallons || 0) / 1000000).toFixed(2)}M gal/yr ({Math.round((cand.projectedAnnualFuelGallons || 0) / 12000).toFixed(0)}k/mo)
+                          </span>
+                          <span className="px-2 py-0.5 rounded-lg bg-purple-100 text-purple-950 border border-purple-300 font-black">
+                            Revenue: ${((cand.projectedAnnualTotalRevenue || 0) / 1000000).toFixed(2)}M/yr
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
                   {/* Right Metrics & Quick Actions */}
                   <div className="flex flex-wrap items-center gap-3 self-end lg:self-auto">
-                    <div className="grid grid-cols-3 gap-2 text-center text-xs pr-2 border-r border-purple-100">
-                      <div className="p-2 rounded-xl bg-purple-50 border border-purple-100">
-                        <div className="text-[10px] text-purple-600 font-semibold">Score</div>
-                        <div className="text-base font-black text-purple-950">{cand.opportunityScore}</div>
+                    <div className="grid grid-cols-4 gap-2 text-center text-xs pr-2 border-r border-purple-100">
+                      <div className="p-2 rounded-xl bg-purple-50 border border-purple-100 min-w-[65px]">
+                        <div className="text-[10px] text-purple-600 font-semibold">Opp. Index</div>
+                        <div className="text-sm font-black text-purple-950">{cand.opportunityScore}</div>
                       </div>
-                      <div className="p-2 rounded-xl bg-purple-50 border border-purple-100">
-                        <div className="text-[10px] text-purple-600 font-semibold">Volume</div>
-                        <div className="text-base font-bold text-emerald-700">
-                          {((cand.projectedAnnualFuelGallons || 0) / 1000000).toFixed(1)}M
+                      <div className="p-2 rounded-xl bg-emerald-50/70 border border-emerald-100 min-w-[65px]">
+                        <div className="text-[10px] text-emerald-700 font-semibold">Unmet Vol</div>
+                        <div className="text-sm font-bold text-emerald-800">
+                          {((cand.tradeAreaUnmetDeficitGallons || 0) / 1000000).toFixed(2)}M
                         </div>
                       </div>
-                      <div className="p-2 rounded-xl bg-purple-50 border border-purple-100">
-                        <div className="text-[10px] text-purple-600 font-semibold">IRR</div>
-                        <div className="text-base font-black text-purple-900">{cand.estimatedIrrPct}%</div>
+                      <div className="p-2 rounded-xl bg-purple-50 border border-purple-100 min-w-[65px]">
+                        <div className="text-[10px] text-purple-600 font-semibold">Revenue</div>
+                        <div className="text-sm font-black text-purple-900">
+                          ${((cand.projectedAnnualTotalRevenue || 0) / 1000000).toFixed(2)}M
+                        </div>
+                      </div>
+                      <div className="p-2 rounded-xl bg-purple-50 border border-purple-100 min-w-[65px]">
+                        <div className="text-[10px] text-purple-600 font-semibold">IRR / Payback</div>
+                        <div className="text-xs font-black text-purple-900">
+                          {cand.estimatedIrrPct}% / {cand.estimatedPaybackYears}y
+                        </div>
                       </div>
                     </div>
 
