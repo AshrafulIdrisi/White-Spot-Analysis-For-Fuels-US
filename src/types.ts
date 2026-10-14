@@ -868,4 +868,85 @@ export interface StreetScoringWeights {
   commercialWeight: number;
 }
 
+export type ZipStylingMode = 'opportunity' | 'income' | 'population' | 'outline';
+
+export interface ZipBoundaryProperties {
+  ZCTA5CE10: string; // 5-digit US ZIP Code
+  GEOID10?: string;
+  STATEFP10?: string;
+  state?: string;
+  stateCode?: string;
+  city?: string;
+  county?: string;
+  ALAND10?: number;
+  AWATER10?: number;
+  INTPTLAT10?: string;
+  INTPTLON10?: string;
+  landAreaSqMiles?: number;
+  opportunityScore?: number;
+  whiteSpotZone?: 'GREEN' | 'ORANGE' | 'RED';
+  zoneRationale?: string;
+  population?: number;
+  medianIncome?: number;
+  unmetFuelGallons?: number;
+  unmetCStoreDemandUsd?: number;
+  existingCompetitorStations?: number;
+  forecourtPumpsCount?: number;
+  corridorAadt?: number;
+  evDeficitPorts?: number;
+  recommendedStoreFormat?: string;
+}
+
+export interface ZipBoundaryFeature {
+  type: 'Feature';
+  properties: ZipBoundaryProperties;
+  geometry: {
+    type: 'Polygon' | 'MultiPolygon';
+    coordinates: any;
+  };
+}
+
+export interface ZipBoundaryCollection {
+  type: 'FeatureCollection';
+  features: ZipBoundaryFeature[];
+  state: string;
+  stateName: string;
+  totalZipCodes: number;
+  source: string;
+}
+
+export interface StateBoundaryProperties {
+  name: string;
+  stateName: string;
+  code: string;
+  region?: string;
+  capital?: string;
+  fuelDemandIndex: number;
+  evAdoptionRank: number;
+  marketDescription?: string;
+  center?: [number, number];
+  zoom?: number;
+  totalWhiteSpots?: number;
+  totalStations?: number;
+  density?: number;
+}
+
+export interface StateBoundaryFeature {
+  type: 'Feature';
+  id?: string;
+  properties: StateBoundaryProperties;
+  geometry: {
+    type: 'Polygon' | 'MultiPolygon';
+    coordinates: any;
+  };
+}
+
+export interface StateBoundaryCollection {
+  type: 'FeatureCollection';
+  totalStates: number;
+  source: string;
+  features: StateBoundaryFeature[];
+}
+
+
 

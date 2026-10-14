@@ -32,18 +32,41 @@ import {
   PlusCircle,
   Filter
 } from 'lucide-react';
-import { StoreLocationRecord, WhiteSpotCandidate, RadiusAnalysisData, OsmPoiRecord } from '../types';
+import { 
+  StoreLocationRecord, 
+  WhiteSpotCandidate, 
+  RadiusAnalysisData, 
+  OsmPoiRecord,
+  ZipBoundaryCollection,
+  ZipBoundaryProperties,
+  ZipStylingMode,
+  StateBoundaryCollection,
+  StateBoundaryProperties 
+} from '../types';
 import { RadiusIntelligenceDrawer } from './RadiusIntelligenceDrawer';
 import { OsmScannerModal } from './OsmScannerModal';
 import { ApiKeyGuideModal } from './ApiKeyGuideModal';
 import { CompetitorPumpsPanel } from './CompetitorPumpsPanel';
 import { GeoapifyPlaceDetailsModal } from './GeoapifyPlaceDetailsModal';
+import { ZipBoundaryDetailModal } from './ZipBoundaryDetailModal';
 import { getCompetitorBrandStyle } from '../utils/brandStyling';
 import { analyzeLocationRadius, fetchLiveOsmPois } from '../services/osmService';
 import { haversineDistance } from '../data/osmSeedData';
 import { getGeoapifyDriveTimeIsochrones, GeoapifyIsochroneResponse, getGeoapifyApiKey } from '../services/geoapifyService';
 import { createCandidateFrom1ClickAnalysis } from '../services/vaultStorage';
 import { reverseGeocodeStructured } from '../services/realDataService';
+import { 
+  fetchZipBoundariesForState,
+  fetchZipBoundariesForStates,
+  getStatesInBounds,
+  US_REGION_PRESETS,
+  guessStateFromZip, 
+  getZipPolygonStyle, 
+  getZipLegendItems, 
+  US_STATE_ZIP_GEOJSON_REGISTRY,
+  fetchStateBoundaries,
+  getStatePolygonStyle
+} from '../services/zipBoundaryService';
 
 interface InteractiveMapProps {
   locations: StoreLocationRecord[];
@@ -78,6 +101,8 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
   const circlesGroupRef = useRef<L.LayerGroup | null>(null);
   const isochronesGroupRef = useRef<L.LayerGroup | null>(null);
   const osmPoisGroupRef = useRef<L.LayerGroup | null>(null);
+  const zipBoundariesGroupRef = useRef<L.LayerGroup | null>(null);
+  const stateBoundariesGroupRef = useRef<L.LayerGroup | null>(null);
   const pinnedMarkerRef = useRef<L.Marker | null>(null);
 
   const [mapTheme, setMapTheme] = useState<'street' | 'osm' | 'positron' | 'satellite' | 'dark'>('street');
@@ -86,6 +111,23 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
   const [activeCatchmentMode, setActiveCatchmentMode] = useState<'radius' | 'drivetime' | 'multiring'>('radius');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [showLayerPanel, setShowLayerPanel] = useState<boolean>(false);
+
+  // US All 50 State Boundaries State (US Census GeoJSON)
+  const [stateBoundariesData, setStateBoundariesData] = useState<StateBoundaryCollection | null>(null);
+  const [isStatesLoading, setIsStatesLoading] = useState<boolean>(false);
+
+  // US ZIP Code Boundaries State (OpenDataDE / US Census GeoJSON)
+  // Supports multi-state and nationwide dynamic viewport loading
+  const [selectedZipState, setSelectedZipState] = useState<string>('TX');
+  const [activeZipStates, setActiveZipStates] = useState<string[]>(['TX']);
+  const [autoLoadViewportStates, setAutoLoadViewportStates] = useState<boolean>(true);
+  const [zipStylingMode, setZipStylingMode] = useState<ZipStylingMode>('opportunity');
+  const [isLoadingZipBoundaries, setIsLoadingZipBoundaries] = useState<boolean>(false);
+  const [zipBoundariesData, setZipBoundariesData] = useState<ZipBoundaryCollection | null>(null);
+  const [selectedZipProperties, setSelectedZipProperties] = useState<ZipBoundaryProperties | null>(null);
+  const [isZipModalOpen, setIsZipModalOpen] = useState<boolean>(false);
+  const [showStateDropdown, setShowStateDropdown] = useState<boolean>(false);
+  const [stateFilterQuery, setStateFilterQuery] = useState<string>('');
   
   // Radius Intelligence Drawer & OSM Data state
   const [radiusData, setRadiusData] = useState<RadiusAnalysisData | null>(null);
@@ -106,8 +148,10 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
   const [isochroneCount, setIsochroneCount] = useState<number>(0);
   const [activeAnalysisToast, setActiveAnalysisToast] = useState<{ name: string; score: number; fuelDemand: string; revenue: string } | null>(null);
 
-  // 18 Toggleable Layer States
+  // 20 Toggleable Layer States
   const [layers, setLayers] = useState({
+    allStateBoundaries: true,
+    zipCodeBoundaries: true,
     whiteSpotOpportunities: true,
     existingFuelStations: true,
     osmPoisLive: true,
@@ -363,12 +407,16 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
     const baseTile = getTileLayerInstance(mapTheme);
     baseTile.addTo(map);
 
+    const stateBoundariesGroup = L.layerGroup().addTo(map);
+    const zipBoundariesGroup = L.layerGroup().addTo(map);
     const isochronesGroup = L.layerGroup().addTo(map);
+    const circlesGroup = L.layerGroup().addTo(map);
     const markersGroup = L.layerGroup().addTo(map);
     const osmPoisGroup = L.layerGroup().addTo(map);
-    const circlesGroup = L.layerGroup().addTo(map);
 
     leafletMapRef.current = map;
+    stateBoundariesGroupRef.current = stateBoundariesGroup;
+    zipBoundariesGroupRef.current = zipBoundariesGroup;
     isochronesGroupRef.current = isochronesGroup;
     markersGroupRef.current = markersGroup;
     osmPoisGroupRef.current = osmPoisGroup;
@@ -450,6 +498,208 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
     performRadiusAnalysis(lat, lng, selectedRadiusMiles, label);
     loadLiveOsmPois(lat, lng, selectedRadiusMiles);
   }, [targetCoord]);
+
+  // Load & Render All 50 US State Boundaries
+  useEffect(() => {
+    if (!leafletMapRef.current || !stateBoundariesGroupRef.current) return;
+    const group = stateBoundariesGroupRef.current;
+
+    if (!layers.allStateBoundaries) {
+      group.clearLayers();
+      return;
+    }
+
+    let isSubscribed = true;
+    setIsStatesLoading(true);
+
+    fetchStateBoundaries().then(data => {
+      if (!isSubscribed || !leafletMapRef.current || !stateBoundariesGroupRef.current) return;
+      setIsStatesLoading(false);
+
+      if (!data || !data.features || data.features.length === 0) return;
+      setStateBoundariesData(data);
+      group.clearLayers();
+
+      const geoJsonLayer = L.geoJSON(data as any, {
+        style: (feature: any) => {
+          const props: StateBoundaryProperties = feature?.properties || {};
+          const isSelected = activeZipStates.includes(props.code || '');
+          return getStatePolygonStyle(props, false, isSelected);
+        },
+        onEachFeature: (feature: any, layer: L.Layer) => {
+          const props: StateBoundaryProperties = feature?.properties || {};
+          const stateName = props.stateName || props.name || 'US State';
+          const code = props.code || '';
+          const idx = props.fuelDemandIndex || 115;
+          const evRank = props.evAdoptionRank || 25;
+
+          layer.bindTooltip(`
+            <div style="font-family: system-ui, sans-serif; padding: 4px 7px; min-width: 150px;">
+              <div style="font-weight: 800; color: #4338ca; font-size: 13px; margin-bottom: 2px; display: flex; justify-content: space-between;">
+                <span>🏛️ ${stateName}</span>
+                <span style="background: #e0e7ff; color: #3730a3; padding: 1px 5px; border-radius: 4px; font-size: 10px;">${code}</span>
+              </div>
+              <div style="font-size: 10px; color: #334155; line-height: 1.4;">
+                <div>Fuel Demand Index: <strong style="color: ${idx >= 135 ? '#059669' : '#4338ca'}">${idx}</strong></div>
+                <div>EV Adoption Rank: <strong>#${evRank} in US</strong></div>
+                ${props.marketDescription ? `<div style="font-size: 9px; color: #64748b; margin-top: 2px;">${props.marketDescription}</div>` : ''}
+              </div>
+              <div style="margin-top: 4px; padding-top: 3px; border-top: 1px solid #e2e8f0; font-size: 9px; color: #7c3aed; font-weight: bold;">
+                👉 Click state to zoom & load all ZIP/Pincode boundaries
+              </div>
+            </div>
+          `, { sticky: true, opacity: 0.95 });
+
+          layer.on({
+            mouseover: (e: any) => {
+              const target = e.target;
+              if (!activeZipStates.includes(props.code || '')) {
+                target.setStyle(getStatePolygonStyle(props, true, false));
+                target.bringToFront();
+              }
+            },
+            mouseout: (e: any) => {
+              const target = e.target;
+              const isSelected = activeZipStates.includes(props.code || '');
+              target.setStyle(getStatePolygonStyle(props, false, isSelected));
+            },
+            click: (e: any) => {
+              L.DomEvent.stopPropagation(e);
+              if (code && code !== 'US') {
+                handleSelectState(code, true);
+              }
+            }
+          });
+        }
+      });
+
+      group.addLayer(geoJsonLayer);
+    }).catch(err => {
+      console.warn('Failed to load state boundaries:', err);
+      if (isSubscribed) setIsStatesLoading(false);
+    });
+
+    return () => {
+      isSubscribed = false;
+    };
+  }, [layers.allStateBoundaries, activeZipStates]);
+
+  // Load & Render US ZIP Code Boundaries from OpenDataDE for All Active States
+  useEffect(() => {
+    if (!leafletMapRef.current || !zipBoundariesGroupRef.current) return;
+    const group = zipBoundariesGroupRef.current;
+
+    if (!layers.zipCodeBoundaries) {
+      group.clearLayers();
+      return;
+    }
+
+    let isSubscribed = true;
+    setIsLoadingZipBoundaries(true);
+
+    fetchZipBoundariesForStates(activeZipStates).then(collection => {
+      if (!isSubscribed || !leafletMapRef.current || !zipBoundariesGroupRef.current) return;
+      setIsLoadingZipBoundaries(false);
+
+      if (!collection || !collection.features || collection.features.length === 0) {
+        return;
+      }
+
+      setZipBoundariesData(collection);
+      group.clearLayers();
+
+      const geoJsonLayer = L.geoJSON(collection as any, {
+        style: (feature: any) => {
+          const props = feature?.properties || {};
+          const isSelected = selectedZipProperties?.ZCTA5CE10 === props.ZCTA5CE10;
+          return getZipPolygonStyle(props, zipStylingMode, false, isSelected);
+        },
+        onEachFeature: (feature: any, layer: L.Layer) => {
+          const props: ZipBoundaryProperties = feature?.properties || {};
+          const zipCode = props.ZCTA5CE10 || '00000';
+          const score = props.opportunityScore ?? 75;
+          const pop = props.population ?? 35000;
+          const inc = props.medianIncome ?? 78000;
+          const st = props.stateCode || props.state || '';
+          const unmetM = ((props.unmetFuelGallons || 2500000) / 1000000).toFixed(1);
+
+          layer.bindTooltip(`
+            <div style="font-family: system-ui, sans-serif; padding: 4px 6px; min-width: 140px;">
+              <div style="font-weight: 800; color: #6b21a8; font-size: 12px; margin-bottom: 2px;">
+                📍 ZIP ${zipCode} ${st ? `(${st})` : ''} ${props.city ? `• ${props.city}` : ''}
+              </div>
+              <div style="font-size: 10px; color: #475569; display: flex; flex-direction: column; gap: 1px;">
+                <span>White Spot Score: <strong style="color: ${score >= 88 ? '#059669' : score >= 75 ? '#d97706' : '#dc2626'}">${score}/100</strong></span>
+                <span>Demand Gap: <strong style="color: #0284c7">${unmetM}M gal/yr</strong></span>
+                <span>Pop: <strong>${pop.toLocaleString()}</strong> • Inc: <strong>$${inc.toLocaleString()}</strong></span>
+              </div>
+            </div>
+          `, { sticky: true, opacity: 0.95 });
+
+          layer.on({
+            mouseover: (e: any) => {
+              const target = e.target;
+              if (selectedZipProperties?.ZCTA5CE10 !== props.ZCTA5CE10) {
+                target.setStyle(getZipPolygonStyle(props, zipStylingMode, true, false));
+                target.bringToFront();
+              }
+            },
+            mouseout: (e: any) => {
+              const target = e.target;
+              const isSelected = selectedZipProperties?.ZCTA5CE10 === props.ZCTA5CE10;
+              target.setStyle(getZipPolygonStyle(props, zipStylingMode, false, isSelected));
+            },
+            click: (e: any) => {
+              L.DomEvent.stopPropagation(e);
+              setSelectedZipProperties(props);
+              setIsZipModalOpen(true);
+            }
+          });
+        }
+      });
+
+      group.addLayer(geoJsonLayer);
+    }).catch(err => {
+      console.warn('Failed to load zip boundaries:', err);
+      if (isSubscribed) setIsLoadingZipBoundaries(false);
+    });
+
+    return () => {
+      isSubscribed = false;
+    };
+  }, [layers.zipCodeBoundaries, activeZipStates, zipStylingMode, selectedZipProperties]);
+
+  // Auto-Load Pincodes in Viewport as user moves across the US
+  useEffect(() => {
+    if (!leafletMapRef.current || !autoLoadViewportStates || !layers.zipCodeBoundaries) return;
+    const map = leafletMapRef.current;
+
+    const handleMoveEnd = () => {
+      const zoom = map.getZoom();
+      // Only auto-load when at state or regional zoom (zoom 5+)
+      if (zoom < 5) return;
+      const bounds = map.getBounds();
+      const visible = getStatesInBounds(
+        bounds.getNorth(),
+        bounds.getSouth(),
+        bounds.getEast(),
+        bounds.getWest(),
+        6
+      );
+      if (visible.length > 0) {
+        setActiveZipStates(prev => {
+          const next = Array.from(new Set([...prev, ...visible]));
+          if (next.length === prev.length) return prev;
+          return next;
+        });
+      }
+    };
+
+    map.on('moveend', handleMoveEnd);
+    return () => {
+      map.off('moveend', handleMoveEnd);
+    };
+  }, [autoLoadViewportStates, layers.zipCodeBoundaries]);
 
   // Update Tile Layer on Theme Change
   useEffect(() => {
@@ -902,10 +1152,151 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
     }
   }, [selectedWhiteSpot, selectedLocation]);
 
+  const handleSelectState = (stateCode: string, flyTo: boolean = true) => {
+    setSelectedZipState(stateCode);
+    setActiveZipStates(prev => Array.from(new Set([...prev, stateCode])));
+    setShowStateDropdown(false);
+    if (!layers.zipCodeBoundaries) {
+      setLayers(prev => ({ ...prev, zipCodeBoundaries: true }));
+    }
+    const stateMeta = US_STATE_ZIP_GEOJSON_REGISTRY[stateCode];
+    if (flyTo && stateMeta && leafletMapRef.current) {
+      leafletMapRef.current.flyTo(stateMeta.center, stateMeta.zoom, { duration: 1.0 });
+    }
+  };
+
+  const handleToggleState = (stateCode: string) => {
+    setActiveZipStates(prev => {
+      if (prev.includes(stateCode)) {
+        if (prev.length <= 1) return prev; // Keep at least one active state
+        return prev.filter(s => s !== stateCode);
+      } else {
+        return [...prev, stateCode];
+      }
+    });
+  };
+
+  const handleSelectRegion = (regionKey: string) => {
+    const preset = US_REGION_PRESETS[regionKey];
+    if (preset) {
+      setActiveZipStates(preset.states);
+      setSelectedZipState(preset.states[0]);
+      if (!layers.zipCodeBoundaries) {
+        setLayers(prev => ({ ...prev, zipCodeBoundaries: true }));
+      }
+      const firstState = US_STATE_ZIP_GEOJSON_REGISTRY[preset.states[0]];
+      if (firstState && leafletMapRef.current) {
+        leafletMapRef.current.flyTo(firstState.center, Math.max(5, firstState.zoom - 1), { duration: 1.0 });
+      }
+    }
+  };
+
+  const handleResetToTexas = () => {
+    setActiveZipStates(['TX']);
+    setSelectedZipState('TX');
+    const tx = US_STATE_ZIP_GEOJSON_REGISTRY['TX'];
+    if (tx && leafletMapRef.current) {
+      leafletMapRef.current.flyTo(tx.center, tx.zoom, { duration: 1.0 });
+    }
+  };
+
+  const handleLoadAllVisibleStates = () => {
+    if (!leafletMapRef.current) return;
+    const bounds = leafletMapRef.current.getBounds();
+    const visible = getStatesInBounds(
+      bounds.getNorth(),
+      bounds.getSouth(),
+      bounds.getEast(),
+      bounds.getWest(),
+      10
+    );
+    if (visible.length > 0) {
+      setActiveZipStates(prev => Array.from(new Set([...prev, ...visible])));
+    }
+  };
+
+  const handleRunAiFromZip = (props: ZipBoundaryProperties) => {
+    const lat = props.INTPTLAT10 ? parseFloat(props.INTPTLAT10) : 29.98;
+    const lng = props.INTPTLON10 ? parseFloat(props.INTPTLON10) : -95.75;
+    const cand: WhiteSpotCandidate = {
+      id: `zip-${props.ZCTA5CE10}`,
+      candidateName: `ZIP ${props.ZCTA5CE10} Retail Corridor (${props.city || 'Metro'}, ${props.stateCode || props.state || 'US'})`,
+      address: `Arterial Commercial Node, ZIP ${props.ZCTA5CE10}`,
+      city: props.city || `Zone ${props.ZCTA5CE10}`,
+      state: props.stateCode || props.state || 'US',
+      county: props.county || 'Trade Area',
+      zipCode: props.ZCTA5CE10,
+      lat,
+      lng,
+      opportunityScore: props.opportunityScore ?? 86,
+      demandScore: 88,
+      supplyGapScore: 86,
+      trafficScore: 84,
+      competitionScore: 82,
+      commercialScore: 87,
+      financialScore: 89,
+      growthScore: 91,
+      confidenceLevel: 'High',
+      riskLevel: (props.opportunityScore ?? 86) >= 88 ? 'Low' : 'Moderate',
+      modelVersion: 'OpenDataDE-Census-2026',
+      primaryRationale: [
+        props.zoneRationale || `Identified strong forecourt retail demand gap in ZIP ${props.ZCTA5CE10}.`,
+        `Catchment zone contains ${(props.population || 42000).toLocaleString()} residents with $${(props.medianIncome || 86500).toLocaleString()} median income.`,
+        `Estimated annual unmet fuel volume deficit of ${((props.unmetFuelGallons || 2850000) / 1000000).toFixed(2)}M gallons.`
+      ],
+      dataGaps: ['State DOT driveway access permit review.'],
+      projectedAnnualFuelGallons: props.unmetFuelGallons || 2850000,
+      projectedAnnualCStoreRevenue: props.unmetCStoreDemandUsd || 2400000,
+      projectedAnnualTotalRevenue: Math.round((props.unmetFuelGallons || 2850000) * 3.45 + (props.unmetCStoreDemandUsd || 2400000)),
+      projectedAnnualEbitda: Math.round((props.unmetFuelGallons || 2850000) * 0.265 + (props.unmetCStoreDemandUsd || 2400000) * 0.38 - 620000),
+      projectedDailyFootfall: Math.round((props.corridorAadt || 48000) * 0.056),
+      projectedMarketSharePct: 28.5,
+      estimatedCapEx: 5800000,
+      estimatedPaybackYears: 3.8,
+      estimatedIrrPct: 24.2,
+      estimatedNpv: 2150000,
+      pop3Mile: props.population || 42000,
+      medianIncome3Mile: props.medianIncome || 86500,
+      aadt: props.corridorAadt || 48000,
+      nearestStationMiles: 2.8,
+      competitorCount3Miles: props.existingCompetitorStations || 2,
+      proposedStoreType: props.recommendedStoreFormat || '14-MPD Modern Forecourt + 5,500 sq ft C-Store',
+      recommendedPumps: 14,
+      recommendedCStoreSqFt: 5500,
+      sourceDate: new Date().toISOString().split('T')[0]
+    };
+    onOpenAIRecommendation(cand);
+  };
+
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchQuery) return;
     const q = searchQuery.toLowerCase();
+    const trimmed = searchQuery.trim();
+
+    // Check if user entered a 5-digit US ZIP Code
+    if (/^\d{5}$/.test(trimmed)) {
+      const targetState = guessStateFromZip(trimmed);
+      setSelectedZipState(targetState);
+      setActiveZipStates(prev => Array.from(new Set([...prev, targetState])));
+      if (!layers.zipCodeBoundaries) {
+        setLayers(prev => ({ ...prev, zipCodeBoundaries: true }));
+      }
+      fetchZipBoundariesForState(targetState, { zip: trimmed }).then(res => {
+        const feat = res?.features?.find(f => f.properties?.ZCTA5CE10 === trimmed) || res?.features?.[0];
+        if (feat) {
+          setSelectedZipProperties(feat.properties);
+          setIsZipModalOpen(true);
+          const lat = feat.properties?.INTPTLAT10 ? parseFloat(feat.properties.INTPTLAT10) : null;
+          const lng = feat.properties?.INTPTLON10 ? parseFloat(feat.properties.INTPTLON10) : null;
+          if (lat && lng && leafletMapRef.current) {
+            leafletMapRef.current.flyTo([lat, lng], 13, { duration: 1.2 });
+            performRadiusAnalysis(lat, lng, selectedRadiusMiles, `ZIP ${trimmed} Centroid (${feat.properties.city || ''}, ${targetState})`);
+          }
+        }
+      });
+      return;
+    }
     
     // Check white spots
     const foundWs = whiteSpots.find(w => 
@@ -1037,6 +1428,244 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
             </button>
           )}
 
+          {/* US All 50 State Boundaries Toggle Button */}
+          <button
+            onClick={() => {
+              const nextVal = !layers.allStateBoundaries;
+              toggleLayer('allStateBoundaries');
+              if (nextVal && leafletMapRef.current) {
+                // If currently zoomed in closer than state level, smoothly fly out to show all US states
+                if (leafletMapRef.current.getZoom() > 6) {
+                  leafletMapRef.current.flyTo([38.5, -96.5], 4, { duration: 1.2 });
+                }
+              }
+            }}
+            className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all border cursor-pointer flex-shrink-0 ${
+              layers.allStateBoundaries
+                ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-500/25'
+                : 'bg-white text-indigo-900 border-indigo-200 hover:bg-indigo-50'
+            }`}
+            title="Toggle All 50 US State Boundaries (US Census Bureau / Cartographic shapefiles)"
+          >
+            <span>🏛️</span>
+            <span>All 50 States</span>
+            {isStatesLoading ? (
+              <RefreshCw className="w-3 h-3 animate-spin text-indigo-200" />
+            ) : (
+              <span className="text-[10px] opacity-85">({stateBoundariesData?.totalStates || 52})</span>
+            )}
+          </button>
+
+          {/* US State ZIP Code Boundaries (OpenDataDE) Multi-State Control */}
+          <div className="relative flex-shrink-0">
+            <button
+              onClick={() => setShowStateDropdown(!showStateDropdown)}
+              className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all border cursor-pointer ${
+                layers.zipCodeBoundaries
+                  ? 'bg-purple-600 text-white border-purple-600 shadow-md shadow-purple-500/25'
+                  : 'bg-white text-purple-800 border-purple-200 hover:bg-purple-50'
+              }`}
+              title="Toggle and switch US State ZIP Code / Pincode boundary polygons (OpenDataDE)"
+            >
+              <Globe className="w-3.5 h-3.5" />
+              <span>
+                {activeZipStates.length === 1
+                  ? `Pincodes: ${activeZipStates[0]}`
+                  : `Pincodes: ${activeZipStates.slice(0, 2).join(', ')}${activeZipStates.length > 2 ? ` +${activeZipStates.length - 2}` : ''}`}
+              </span>
+              {isLoadingZipBoundaries ? (
+                <RefreshCw className="w-3 h-3 animate-spin text-purple-200" />
+              ) : (
+                <span className="text-[10px] opacity-80">({zipBoundariesData?.totalZipCodes || 0})</span>
+              )}
+            </button>
+
+            {/* State Picker Dropdown Modal / Popover */}
+            {showStateDropdown && (
+              <div className="absolute top-full mt-2 left-0 sm:left-auto sm:right-0 w-88 max-w-[calc(100vw-24px)] bg-white rounded-2xl border border-purple-200 shadow-2xl p-3.5 z-40 animate-in fade-in zoom-in-95 duration-150">
+                <div className="flex items-center justify-between pb-2 border-b border-purple-100 mb-2">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-purple-950">
+                    <Globe className="w-4 h-4 text-purple-600" />
+                    <span>US Pincode Boundaries (OpenDataDE)</span>
+                  </div>
+                  <button 
+                    onClick={() => setShowStateDropdown(false)}
+                    className="text-purple-400 hover:text-purple-700 cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                {/* Auto-load in Viewport Toggle */}
+                <div className="mb-2.5 p-2 rounded-xl bg-purple-50/80 border border-purple-200/80">
+                  <label className="flex items-center justify-between cursor-pointer">
+                    <span className="text-xs font-bold text-purple-950 flex items-center gap-1.5">
+                      <span>⚡</span>
+                      <span>Auto-Load Pincodes in View</span>
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={autoLoadViewportStates}
+                      onChange={(e) => setAutoLoadViewportStates(e.target.checked)}
+                      className="rounded accent-purple-600 cursor-pointer w-4 h-4"
+                    />
+                  </label>
+                  <p className="text-[10px] text-purple-700/80 mt-1">
+                    Pan/zoom anywhere across the US to auto-load pincodes like Texas.
+                  </p>
+                </div>
+
+                {/* Active States Chips & Controls */}
+                <div className="mb-2.5">
+                  <div className="flex items-center justify-between text-[10px] font-bold text-purple-900 uppercase tracking-wider mb-1">
+                    <span>Active States ({activeZipStates.length})</span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={handleLoadAllVisibleStates}
+                        className="text-purple-600 hover:text-purple-900 lowercase font-medium hover:underline cursor-pointer"
+                      >
+                        + in view
+                      </button>
+                      <button
+                        onClick={handleResetToTexas}
+                        className="text-purple-600 hover:text-purple-900 lowercase font-medium hover:underline cursor-pointer"
+                      >
+                        reset tx
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-1 max-h-16 overflow-y-auto custom-scrollbar p-1.5 rounded-xl bg-slate-50 border border-purple-100">
+                    {activeZipStates.map(code => (
+                      <span
+                        key={code}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-purple-100 text-purple-950 text-[10px] font-bold border border-purple-200"
+                      >
+                        <span>{code}</span>
+                        {activeZipStates.length > 1 && (
+                          <button
+                            onClick={() => handleToggleState(code)}
+                            className="text-purple-500 hover:text-rose-600 cursor-pointer ml-0.5"
+                          >
+                            ×
+                          </button>
+                        )}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Quick Regional Presets */}
+                <div className="mb-2.5">
+                  <div className="text-[10px] font-bold text-purple-900 uppercase tracking-wider mb-1">
+                    1-Click Regional Presets
+                  </div>
+                  <div className="grid grid-cols-2 gap-1 text-[10px]">
+                    {Object.entries(US_REGION_PRESETS).map(([key, reg]) => (
+                      <button
+                        key={key}
+                        onClick={() => handleSelectRegion(key)}
+                        className="px-2 py-1.5 rounded-lg bg-purple-50 hover:bg-purple-100 text-purple-950 font-semibold text-left flex items-center gap-1.5 border border-purple-100 transition-all cursor-pointer"
+                      >
+                        <span>{reg.icon}</span>
+                        <span className="truncate">{reg.label.split('(')[0].trim()}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Styling Mode Selector */}
+                <div className="mb-2.5">
+                  <div className="text-[10px] font-bold text-purple-900 uppercase tracking-wider mb-1">
+                    Polygon Metric Coloring
+                  </div>
+                  <div className="grid grid-cols-4 gap-1 text-[10px]">
+                    <button
+                      onClick={() => setZipStylingMode('opportunity')}
+                      className={`p-1 rounded-lg font-bold text-center transition-all cursor-pointer ${
+                        zipStylingMode === 'opportunity' ? 'bg-purple-600 text-white' : 'bg-purple-50 text-purple-800 hover:bg-purple-100'
+                      }`}
+                    >
+                      🎯 White Spot
+                    </button>
+                    <button
+                      onClick={() => setZipStylingMode('income')}
+                      className={`p-1 rounded-lg font-bold text-center transition-all cursor-pointer ${
+                        zipStylingMode === 'income' ? 'bg-purple-600 text-white' : 'bg-purple-50 text-purple-800 hover:bg-purple-100'
+                      }`}
+                    >
+                      💰 Income
+                    </button>
+                    <button
+                      onClick={() => setZipStylingMode('population')}
+                      className={`p-1 rounded-lg font-bold text-center transition-all cursor-pointer ${
+                        zipStylingMode === 'population' ? 'bg-purple-600 text-white' : 'bg-purple-50 text-purple-800 hover:bg-purple-100'
+                      }`}
+                    >
+                      👥 Population
+                    </button>
+                    <button
+                      onClick={() => setZipStylingMode('outline')}
+                      className={`p-1 rounded-lg font-bold text-center transition-all cursor-pointer ${
+                        zipStylingMode === 'outline' ? 'bg-purple-600 text-white' : 'bg-purple-50 text-purple-800 hover:bg-purple-100'
+                      }`}
+                    >
+                      📐 Outlines
+                    </button>
+                  </div>
+                </div>
+
+                {/* Filter States input */}
+                <input
+                  type="text"
+                  placeholder="Filter 51 states (e.g. Texas, CA, FL)..."
+                  value={stateFilterQuery}
+                  onChange={(e) => setStateFilterQuery(e.target.value)}
+                  className="w-full text-xs p-2 rounded-xl bg-purple-50/60 border border-purple-200 text-purple-950 placeholder:text-purple-400 focus:outline-none mb-1.5"
+                />
+
+                {/* State list scrollable with checkboxes */}
+                <div className="max-h-40 overflow-y-auto space-y-0.5 custom-scrollbar pr-1">
+                  {Object.values(US_STATE_ZIP_GEOJSON_REGISTRY)
+                    .filter(s => 
+                      s.name.toLowerCase().includes(stateFilterQuery.toLowerCase()) || 
+                      s.code.toLowerCase().includes(stateFilterQuery.toLowerCase())
+                    )
+                    .map(st => {
+                      const isActive = activeZipStates.includes(st.code);
+                      return (
+                        <div
+                          key={st.code}
+                          className={`w-full px-2 py-1.5 rounded-xl text-xs flex items-center justify-between transition-all ${
+                            isActive
+                              ? 'bg-purple-100 text-purple-950 font-bold border border-purple-300'
+                              : 'hover:bg-purple-50 text-slate-700'
+                          }`}
+                        >
+                          <label className="flex items-center gap-2 cursor-pointer flex-1">
+                            <input
+                              type="checkbox"
+                              checked={isActive}
+                              onChange={() => handleToggleState(st.code)}
+                              className="rounded accent-purple-600 cursor-pointer"
+                            />
+                            <span className="font-mono text-purple-700 text-[11px]">{st.code}</span>
+                            <span className="truncate">{st.name}</span>
+                          </label>
+                          <button
+                            onClick={() => handleSelectState(st.code, true)}
+                            className="text-[10px] text-purple-600 hover:text-purple-900 underline font-semibold ml-2 cursor-pointer"
+                            title={`Zoom to ${st.name}`}
+                          >
+                            Zoom
+                          </button>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* 1, 3, 5 Mile Radius Switcher Pills */}
           <div className="flex items-center bg-purple-50 rounded-xl p-0.5 border border-purple-100 flex-shrink-0">
             <span className="text-[10px] text-purple-900/70 font-bold px-1.5 hidden md:inline">RADIUS:</span>
@@ -1166,7 +1795,31 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
 
           <div className="space-y-3 text-xs">
             <div className="space-y-1.5">
-              <div className="text-[10px] font-bold text-purple-900 uppercase tracking-wider">Live Geospatial POIs</div>
+              <div className="text-[10px] font-bold text-purple-900 uppercase tracking-wider">Live Geospatial POIs & Boundaries</div>
+              <label className="flex items-center justify-between p-2 rounded-xl bg-purple-50/60 border border-purple-100 hover:border-purple-300 cursor-pointer">
+                <span className="flex items-center gap-2 text-purple-950 font-semibold">
+                  <span className="text-sm">🗺️</span> US ZIP Boundaries ({activeZipStates.join(', ')}: {zipBoundariesData?.totalZipCodes || 0})
+                </span>
+                <input
+                  type="checkbox"
+                  checked={layers.zipCodeBoundaries}
+                  onChange={() => toggleLayer('zipCodeBoundaries')}
+                  className="rounded accent-purple-600"
+                />
+              </label>
+
+              <label className="flex items-center justify-between p-2 rounded-xl bg-purple-50/60 border border-purple-100 hover:border-purple-300 cursor-pointer">
+                <span className="flex items-center gap-2 text-purple-950 font-semibold">
+                  <span className="text-sm">🏛️</span> All 50 State Boundaries ({stateBoundariesData?.totalStates || 52})
+                </span>
+                <input
+                  type="checkbox"
+                  checked={layers.allStateBoundaries}
+                  onChange={() => toggleLayer('allStateBoundaries')}
+                  className="rounded accent-purple-600"
+                />
+              </label>
+
               <label className="flex items-center justify-between p-2 rounded-xl bg-purple-50/60 border border-purple-100 hover:border-purple-300 cursor-pointer">
                 <span className="flex items-center gap-2 text-purple-950 font-semibold">
                   <span className="text-sm">⛽</span> Live OSM Forecourts ({liveOsmPois.length})
@@ -1392,6 +2045,94 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
           </div>
         )}
       </div>
+
+      {/* Floating State & ZIP Boundaries Legend */}
+      {(layers.zipCodeBoundaries || layers.allStateBoundaries) && (
+        <div className="absolute bottom-16 sm:bottom-4 right-2 sm:right-4 z-20 bg-white/95 backdrop-blur-md p-3 rounded-2xl border border-purple-200 shadow-xl text-xs max-w-xs space-y-2.5">
+          {layers.allStateBoundaries && (
+            <div>
+              <div className="flex items-center justify-between gap-2 mb-1 pb-1 border-b border-indigo-100">
+                <span className="font-bold text-indigo-950 flex items-center gap-1 text-[11px]">
+                  <span>🏛️</span> All 50 US States ({stateBoundariesData?.totalStates || 52})
+                </span>
+                <span className="text-[9px] uppercase font-bold text-indigo-700 px-1.5 py-0.5 rounded bg-indigo-50 border border-indigo-200">
+                  Demand Index
+                </span>
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-[10px] text-slate-700">
+                  <span className="w-3 h-3 rounded-md flex-shrink-0 bg-indigo-700 border border-indigo-900/20 shadow-xs" />
+                  <span className="font-semibold text-slate-900">Tier 1 High Demand (140+)</span>
+                  <span className="text-[9px] text-indigo-600">TX, FL, CA</span>
+                </div>
+                <div className="flex items-center gap-2 text-[10px] text-slate-700">
+                  <span className="w-3 h-3 rounded-md flex-shrink-0 bg-purple-600 border border-purple-900/20 shadow-xs" />
+                  <span className="font-semibold text-slate-900">Tier 2 Solid Demand (120-139)</span>
+                </div>
+                <div className="flex items-center gap-2 text-[10px] text-slate-700">
+                  <span className="w-3 h-3 rounded-md flex-shrink-0 bg-purple-400 border border-purple-900/20 shadow-xs" />
+                  <span className="font-semibold text-slate-900">Tier 3 Baseline Corridor</span>
+                </div>
+              </div>
+              <div className="mt-1 pt-1 text-[9px] text-indigo-600 font-semibold italic">
+                👉 Click any state to load all ZIPs
+              </div>
+            </div>
+          )}
+
+          {layers.zipCodeBoundaries && (
+            <div className={layers.allStateBoundaries ? 'pt-2 border-t border-purple-100' : ''}>
+              <div className="flex items-center justify-between gap-2 mb-1.5 pb-1 border-b border-purple-100">
+                <span className="font-bold text-purple-950 flex items-center gap-1 text-[11px]">
+                  <span>🗺️</span> {activeZipStates.slice(0, 3).join(', ')}{activeZipStates.length > 3 ? ` +${activeZipStates.length - 3}` : ''} Pincodes ({zipBoundariesData?.totalZipCodes || 0})
+                </span>
+                <span className="text-[9px] uppercase font-bold text-purple-600 px-1.5 py-0.5 rounded bg-purple-100">
+                  {zipStylingMode}
+                </span>
+              </div>
+              <div className="space-y-1">
+                {getZipLegendItems(zipStylingMode).map((item, idx) => (
+                  <div key={idx} className="flex items-center gap-2 text-[10px] text-slate-700">
+                    <span className="w-3 h-3 rounded-md flex-shrink-0 border border-slate-900/20 shadow-xs" style={{ backgroundColor: item.color }} />
+                    <span className="font-semibold text-slate-900">{item.label}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-1.5 pt-1 border-t border-purple-100 text-[9px] text-purple-600/80 italic flex items-center justify-between">
+                <span>OpenDataDE GeoJSON</span>
+                <span>Click ZIP polygon for stats</span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* OpenDataDE US ZIP Code Boundary Detail Modal */}
+      <ZipBoundaryDetailModal
+        isOpen={isZipModalOpen}
+        properties={selectedZipProperties}
+        onClose={() => setIsZipModalOpen(false)}
+        onSetCatchmentCenter={(lat, lng, label) => {
+          performRadiusAnalysis(lat, lng, selectedRadiusMiles, label);
+          loadLiveOsmPois(lat, lng, selectedRadiusMiles);
+          if (leafletMapRef.current) {
+            leafletMapRef.current.flyTo([lat, lng], 13, { duration: 1.0 });
+          }
+        }}
+        onEvaluateSite={(lat, lng, address) => {
+          onEvaluateCustomSite(lat, lng, address);
+        }}
+        onRunAiAnalysis={(props) => {
+          handleRunAiFromZip(props);
+        }}
+        onFitBounds={() => {
+          if (selectedZipProperties?.INTPTLAT10 && selectedZipProperties?.INTPTLON10 && leafletMapRef.current) {
+            const lat = parseFloat(selectedZipProperties.INTPTLAT10);
+            const lng = parseFloat(selectedZipProperties.INTPTLON10);
+            leafletMapRef.current.flyTo([lat, lng], 13, { duration: 0.8 });
+          }
+        }}
+      />
     </div>
   );
 };
